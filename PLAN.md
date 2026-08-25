@@ -5,7 +5,7 @@ Working plan. Last updated 2026-08-23 (TTS choice + song path added).
 ## Goal
 
 Reuse the original Teddy Ruxpin mechanism as a battery-powered conversational
-toy: squeeze the paw, ask a question, the bear searches, answers aloud, and the
+toy: ask a question, the bear searches, answers aloud, and the
 mouth and eyes animate in sync with the speech.
 
 ## Architecture — thin client + server
@@ -13,7 +13,7 @@ mouth and eyes animate in sync with the speech.
 ```
   BEAR (ESP32-WROOM-32, battery)          SERVER (always-on box)
   ------------------------                ----------------------
-  paw button -> wake from deep sleep
+  trigger (undecided) -> wake from deep sleep
   I2S mic ---- raw PCM upstream -------->  endpointing (VAD)
                                            -> STT (streaming)
                                            -> Claude (streaming + web search)
@@ -249,9 +249,17 @@ client.beta.messages.stream(
 
 ## Power
 
-- **Squeeze-to-talk, not wake word.** WakeNet costs ~30mA continuous, which
-  becomes the entire budget. A paw button on an RTC GPIO waking from deep sleep
-  gets months of standby, and it's better privacy for a kid's toy.
+- **The trigger is undecided.** Squeeze-to-talk is out, and nothing replaces it
+  yet - which matters, because the deep-sleep argument this whole architecture
+  rests on assumed the bear is idle 99.9% of the time. Options and their costs:
+  - **Wake word** (ESP-SR WakeNet) - ~30mA continuous. That *is* the budget;
+    months of standby collapses to days, and it listens constantly.
+  - **Always streaming** - worse on power, and everything said in the room
+    leaves the house.
+  - **A physical switch** - the original toy's model. Cheap, honest, and
+    dissolves the problem entirely at the cost of one deliberate action.
+
+  Settle this before sizing the pack. GPIO 35 is the pin left for it.
 - ~2000mAh LiPo -> several hundred interactions.
 - **Give the ESP32 its own regulator off the pack.** Motor inrush on a shared
   rail browns out the MCU and resets it mid-sentence. Add bulk capacitance at the
@@ -285,24 +293,24 @@ care:
 - **GPIO 12 is unusable.** Strapping pin — high at boot selects the wrong flash
   voltage and the board won't come up. Presents as a dead board.
 - **GPIO 0 and 2** also strap; leave them alone. **6-11** are flash.
-- **34-39 are input-only with no internal pull-ups.** Good for the mic data line
-  and the paw button; the button needs an external 10k pull-up.
+- **34-39 are input-only with no internal pull-ups.** Ideal for the pot wipers,
+  which need no drive and must sit on ADC1 anyway.
 - WROVER modules use 16/17 for PSRAM. WROOM-32 is fine.
 
 | Signal | GPIO | | Signal | GPIO |
 |---|---|---|---|---|
-| `AIN1` / `AIN2` / `PWMA` | 32 / 33 / 25 | | I2S out BCLK | 18 |
-| `BIN1` / `BIN2` / `PWMB` | 26 / 27 / 14 | | I2S out LRCLK | 5 |
-| `CIN1` / `CIN2` / `PWMC` | 13 / 23 / 22 | | I2S out DIN | 17 |
-| `STBY` (drivers A/B) | 21 | | I2S mic SCK / WS | 16 / 4 |
-| `STBYC` (eyes) | 19 | | I2S mic SD (input-only) | 35 |
-| | | | Paw button (ext0 wake) | 34 |
+| `AIN1` / `AIN2` / `PWMA` | 32 / 33 / 25 | | I2S out BCLK / LRCLK / DIN | 18 / 5 / 17 |
+| `BIN1` / `BIN2` / `PWMB` | 26 / 27 / 14 | | I2S mic SCK / WS | 16 / 4 |
+| `CIN1` / `CIN2` / `PWMC` | 13 / 23 / 22 | | I2S mic SD | 15 |
+| `STBY` (drivers A/B) | 21 | | pot wipers: upper / lower / eyes | 34 / 36 / 39 |
+| `STBYC` (eyes) | 19 | | pot ends | `3V3` / `GND` |
 
-Free: 2, 12, 15, 36, 39, plus UART0 (1/3) for the console. RTC-capable GPIOs are
-0, 2, 4, 12-15, 25-27, 32-39, which is why 34 works as the wake pin.
+Pot wipers must be on **ADC1** (32-39) - ADC2 is dead while WiFi is up. 34/36/39
+are also input-only, so they cost no output pin.
 
-**That leaves exactly one safe spare output — GPIO 15.** 36 and 39 are input
-only, 12 is untouchable, and 2 straps. Anything added later has a one-pin budget.
+**Free: GPIO 35 (input-only, ADC1, RTC) and GPIO 2**, plus UART0 (1/3) for the
+console. 12 is untouchable. That is the entire remaining budget - and whatever
+replaces the trigger has to come out of it.
 Tying `STBY` and `STBYC` to a single GPIO buys one more, at the cost of being
 able to standby the eyes driver independently.
 
@@ -336,8 +344,8 @@ Each phase is independently testable. Don't skip ahead.
    PCM through the MAX98357A. Motors ignored. Verify buffer depth and jitter.
 4. **Join them** — jaw from `jaw_state` with lookahead, eyes from `cue_id`.
    Tune the lookahead until movement lands on the sound.
-5. **Power** — deep sleep, paw wake, separate rails, battery. Measure real
-   standby draw.
+5. **Power** — deep sleep, the wake trigger (undecided, see Power), separate
+   rails, battery. Measure real standby draw.
 6. **Enclosure** — fit it all back in the bear.
 
 **Songs** are a parallel track, not a phase. Once phase 4 works, a song is just a
@@ -345,6 +353,9 @@ pre-rendered audio file plus a pre-computed track played through the same code
 path — nothing new to build on the bear, only content to produce. Do it whenever.
 
 ## Open questions
+
+- **What wakes the bear?** The paw button is gone and nothing replaces it. This
+  gates the power budget and phase 5 - see Power.
 
 - ~~Which TTS?~~ Fish Audio, pending a phase-2 quality check. Decide hosted vs
   self-hosted `fish-speech` at the same time.

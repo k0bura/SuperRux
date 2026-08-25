@@ -33,7 +33,7 @@ amplifier never put the full rail across a motor.
 | `AIN1` / `AIN2` / `PWMA` | 32 / 33 / 25 | | I2S out BCLK / LRCLK / DIN | 18 / 5 / 17 |
 | `BIN1` / `BIN2` / `PWMB` | 26 / 27 / 14 | | I2S mic SCK / WS | 16 / 4 |
 | `CIN1` / `CIN2` / `PWMC` | 13 / 23 / 22 | | I2S mic SD (input-only) | 15 |
-| `STBY` (drivers A/B) | 21 | | Paw button (ext0 wake) | 35 |
+| `STBY` (drivers A/B) | 21 | | | |
 | `STBYC` (eyes) | 19 | | | |
 
 Driver #1 carries both mouth channels; driver #2 uses channel A only for the

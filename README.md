@@ -1,8 +1,8 @@
 # Teddy Ruxpin — Conversational Animatronic
 
 Turning a 1985 Worlds of Wonder Teddy Ruxpin into a battery-powered
-conversational toy: squeeze the paw, ask a question, the bear searches, answers
-aloud, and the mouth and eyes animate in sync with the speech.
+conversational toy: ask a question, the bear searches, answers aloud, and the
+mouth and eyes animate in sync with the speech.
 
 The original mechanism is reused as-is. No servos added, no sensors retrofitted,
 no gears replaced.
@@ -58,7 +58,7 @@ Reading those pots deletes most of the original plan's compromises:
 | `BIN1` / `BIN2` / `PWMB` | 26 / 27 / 14 | | lower pot wiper | 36 |
 | `CIN1` / `CIN2` / `PWMC` | 13 / 23 / 22 | | eyes pot wiper | 39 |
 | `STBY` (drivers A/B) | 21 | | pot ends | `3V3` / `GND` |
-| `STBYC` (eyes) | 19 | | | |
+| `STBYC` (eyes) | 19 | | I2S mic SD | 15 |
 
 Pot wipers must be on **ADC1** (GPIO 32–39) — ADC2 is unusable while WiFi is up.
 34/36/39 are input-only, which suits an analog input and costs no output pin.

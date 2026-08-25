@@ -33,8 +33,8 @@ reflash. Console at 115200, type "help".
 
 // Potentiometer feedback, one per axis. Must be ADC1 - ADC2 is unusable while
 // WiFi is up. 34/36/39 are input-only pins, which suits an analog input exactly
-// and costs no output GPIO, so nothing already wired has to move. The paw button
-// and I2S mic data line move to 35 and 15 when the audio phase arrives.
+// and costs no output GPIO, so nothing already wired has to move. The I2S mic
+// data line moves to GPIO 15 when the audio phase arrives.
 #define POT_UPPER 34
 #define POT_LOWER 36
 #define POT_EYES  39
