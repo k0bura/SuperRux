@@ -1,0 +1,722 @@
+<title>Teddy Ruxpin Wiring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --bg:#F4F7FA; --surface:#FFFFFF; --surface-2:#E9EFF5; --surface-3:#DCE5EE;
+  --ink:#0F1720; --ink-2:#53616F; --ink-3:#7C8896; --rule:#D3DCE5;
+  --accent:#2A6FB8;
+  --warn-bg:#FDF3E9; --warn-ink:#8A4B12; --warn-rule:#E8B583;
+  --danger-bg:#FCEDEC; --danger-ink:#9B2A22; --danger-rule:#E9A9A3;
+  --ok:#1E8A5A;
+  --w-pwr:#CE2E3F; --w-gnd:#2B3440; --w-vm:#D97A1E;
+  --w-dir:#2A6FB8; --w-pwm:#2E8B57; --w-stby:#7A55A8; --w-mot:#6B7885;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 4px 16px rgba(15,23,32,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1218; --surface:#141B23; --surface-2:#1C2530; --surface-3:#243040;
+    --ink:#E3EAF1; --ink-2:#96A3B1; --ink-3:#6F7D8B; --rule:#28323E;
+    --accent:#6BA8E8;
+    --warn-bg:#2A1F12; --warn-ink:#E8B87A; --warn-rule:#5C4322;
+    --danger-bg:#2B1614; --danger-ink:#F0938B; --danger-rule:#5E2E29;
+    --ok:#56C08A;
+    --w-pwr:#FF6B78; --w-gnd:#93A3B3; --w-vm:#F0A44E;
+    --w-dir:#6BA8E8; --w-pwm:#56C08A; --w-stby:#B392DD; --w-mot:#8B98A5;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1218; --surface:#141B23; --surface-2:#1C2530; --surface-3:#243040;
+  --ink:#E3EAF1; --ink-2:#96A3B1; --ink-3:#6F7D8B; --rule:#28323E;
+  --accent:#6BA8E8;
+  --warn-bg:#2A1F12; --warn-ink:#E8B87A; --warn-rule:#5C4322;
+  --danger-bg:#2B1614; --danger-ink:#F0938B; --danger-rule:#5E2E29;
+  --ok:#56C08A;
+  --w-pwr:#FF6B78; --w-gnd:#93A3B3; --w-vm:#F0A44E;
+  --w-dir:#6BA8E8; --w-pwm:#56C08A; --w-stby:#B392DD; --w-mot:#8B98A5;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1060px; margin:0 auto; padding:0 24px 96px}
+.prose{max-width:64ch}
+
+h1,h2,h3{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  text-wrap:balance; margin:0; line-height:1.15; letter-spacing:-.01em}
+h1{font-size:clamp(2.1rem,5vw,3.1rem); font-weight:700}
+h2{font-size:clamp(1.4rem,2.6vw,1.85rem); font-weight:700}
+h3{font-size:1.05rem; font-weight:600}
+p{margin:0}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace}
+code{font-size:.87em; background:var(--surface-2); padding:.12em .38em; border-radius:3px}
+
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace; font-size:.72rem; font-weight:500;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3);
+}
+
+/* ---- header ---- */
+header.top{
+  border-bottom:1px solid var(--rule); margin-bottom:56px;
+  padding:56px 0 32px;
+}
+header.top .inner{display:flex; flex-wrap:wrap; gap:28px; align-items:flex-end; justify-content:space-between}
+header.top .lede{color:var(--ink-2); margin-top:14px; max-width:56ch}
+.hgroup{display:flex; flex-direction:column; gap:10px}
+
+.counter{
+  display:flex; align-items:baseline; gap:10px;
+  background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+  padding:14px 20px; box-shadow:var(--shadow); white-space:nowrap;
+}
+.counter b{font-family:"IBM Plex Mono",monospace; font-size:1.7rem; font-weight:600;
+  font-variant-numeric:tabular-nums; color:var(--accent); line-height:1}
+.counter span{font-size:.8rem; color:var(--ink-3); letter-spacing:.04em}
+
+section{margin-bottom:64px}
+.sec-head{display:flex; flex-direction:column; gap:8px; margin-bottom:22px}
+.sec-head p{color:var(--ink-2)}
+
+/* ---- figures ---- */
+figure{margin:0; background:var(--surface); border:1px solid var(--rule);
+  border-radius:12px; padding:26px 22px 18px; box-shadow:var(--shadow)}
+.figscroll{overflow-x:auto}
+figure svg{display:block; width:100%; height:auto; min-width:560px}
+figcaption{margin-top:18px; padding-top:14px; border-top:1px solid var(--rule);
+  font-size:.85rem; color:var(--ink-2); max-width:70ch}
+
+.svg-ink{fill:var(--ink)}
+.svg-dim{fill:var(--ink-3)}
+.svg-box{fill:var(--surface-2); stroke:var(--ink-3); stroke-width:1.5}
+.svg-lbl{font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:700;
+  font-size:14px; fill:var(--ink); letter-spacing:.02em}
+.svg-pin{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:500; fill:var(--ink)}
+.svg-note{font-family:"IBM Plex Sans",sans-serif; font-size:11.5px; fill:var(--ink-3)}
+.svg-tag{font-family:"IBM Plex Mono",monospace; font-size:10.5px; fill:var(--ink-3); letter-spacing:.05em}
+.w{fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round}
+.w-pwr{stroke:var(--w-pwr)} .w-gnd{stroke:var(--w-gnd)} .w-vm{stroke:var(--w-vm)}
+.w-dir{stroke:var(--w-dir)} .w-pwm{stroke:var(--w-pwm)} .w-stby{stroke:var(--w-stby)}
+.w-mot{stroke:var(--w-mot)}
+.d-pwr{fill:var(--w-pwr)} .d-gnd{fill:var(--w-gnd)}
+.bus{stroke:var(--w-gnd); stroke-width:5; fill:none; stroke-linecap:round}
+
+/* ---- callouts ---- */
+.callout{border-radius:10px; padding:18px 20px; display:flex; flex-direction:column; gap:10px;
+  border:1px solid; margin-top:20px}
+.callout .k{font-family:"IBM Plex Mono",monospace; font-size:.72rem; letter-spacing:.12em;
+  text-transform:uppercase; font-weight:600}
+.callout p{font-size:.92rem}
+.c-danger{background:var(--danger-bg); border-color:var(--danger-rule); color:var(--danger-ink)}
+.c-warn{background:var(--warn-bg); border-color:var(--warn-rule); color:var(--warn-ink)}
+.callout code{background:rgba(128,128,128,.16); color:inherit}
+.callout svg{display:block; margin-top:4px}
+
+/* ---- legend ---- */
+.legend{display:flex; flex-wrap:wrap; gap:8px 20px; margin-bottom:20px; padding:16px 18px;
+  background:var(--surface); border:1px solid var(--rule); border-radius:10px}
+.legend div{display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--ink-2)}
+.swatch{width:22px; height:4px; border-radius:2px; flex:none}
+
+/* ---- tables ---- */
+.tgroup{margin-bottom:30px}
+.tgroup h3{display:flex; align-items:center; gap:10px; margin-bottom:10px}
+.tgroup h3 .n{font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--ink-3);
+  font-weight:500; letter-spacing:.08em}
+.tscroll{overflow-x:auto; background:var(--surface); border:1px solid var(--rule);
+  border-radius:10px; box-shadow:var(--shadow)}
+table{border-collapse:collapse; width:100%; min-width:600px}
+th{font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:500; text-align:left;
+  padding:11px 14px; border-bottom:1px solid var(--rule); white-space:nowrap}
+td{padding:10px 14px; border-bottom:1px solid var(--rule); font-size:.9rem; vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr.done td{color:var(--ink-3)}
+tbody tr.done td.from,tbody tr.done td.to{text-decoration:line-through}
+td.from,td.to{font-family:"IBM Plex Mono",monospace; font-weight:500;
+  font-variant-numeric:tabular-nums; white-space:nowrap}
+td.why{color:var(--ink-2); font-size:.85rem}
+td.chk{width:44px; padding-left:16px}
+input[type=checkbox]{width:17px; height:17px; accent-color:var(--accent); cursor:pointer; margin:0}
+input[type=checkbox]:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+.dot{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:9px;
+  vertical-align:baseline; flex:none}
+
+.actions{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+button.reset{
+  font-family:"IBM Plex Sans",sans-serif; font-size:.85rem; font-weight:500;
+  background:var(--surface); color:var(--ink-2); border:1px solid var(--rule);
+  border-radius:7px; padding:8px 16px; cursor:pointer; transition:border-color .15s, color .15s;
+}
+button.reset:hover{border-color:var(--ink-3); color:var(--ink)}
+button.reset:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+ol.checks{margin:0; padding-left:22px; display:flex; flex-direction:column; gap:12px;
+  color:var(--ink-2); max-width:66ch}
+ol.checks strong{color:var(--ink); font-weight:600}
+ol.checks::marker{color:var(--ink-3)}
+li::marker{font-family:"IBM Plex Mono",monospace; font-size:.85em}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+@media (max-width:640px){
+  header.top{padding-top:36px}
+  .wrap{padding:0 16px 64px}
+}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="inner">
+    <div class="hgroup">
+      <span class="eyebrow">Phase 1 · Bench wiring</span>
+      <h1>Teddy Ruxpin Wiring</h1>
+      <p class="lede">ESP32-WROOM-32 to two TB6612FNG drivers — three motors, on a
+      breadboard, before any audio or network exists. Tick each wire as you land it.</p>
+    </div>
+    <div class="counter">
+      <b id="count">0</b><span>of <span id="total">24</span> connections</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">Figure 1</span>
+    <h2>Three supplies, one ground</h2>
+    <p class="prose">The wiring mistake that costs you a day isn't a swapped signal pin —
+    it's the power topology. Logic and motors run from separate supplies that must share
+    a ground, and <code>VM</code> must never touch <code>VCC</code>.</p>
+  </div>
+
+  <figure>
+    <div class="figscroll">
+    <svg viewBox="0 0 840 400" role="img" aria-label="Power topology: USB feeds the ESP32, a separate 6-volt pack feeds motor supply VM on both drivers, the ESP32 3.3-volt pin feeds logic supply VCC on both drivers, and every ground returns to one common bus.">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="context-stroke"/>
+        </marker>
+      </defs>
+
+      <rect class="svg-box" x="20" y="40" width="112" height="46" rx="5"/>
+      <text class="svg-lbl" x="76" y="61" text-anchor="middle">USB</text>
+      <text class="svg-note" x="76" y="77" text-anchor="middle">5V from laptop</text>
+
+      <rect class="svg-box" x="176" y="24" width="152" height="122" rx="6"/>
+      <text class="svg-lbl" x="252" y="62" text-anchor="middle">ESP32</text>
+      <text class="svg-note" x="252" y="79" text-anchor="middle">WROOM-32</text>
+      <text class="svg-tag" x="252" y="104" text-anchor="middle">3V3 OUT →</text>
+
+      <rect class="svg-box" x="440" y="20" width="168" height="72" rx="5"/>
+      <text class="svg-lbl" x="524" y="46" text-anchor="middle">TB6612 #1</text>
+      <text class="svg-note" x="524" y="65" text-anchor="middle">upper + lower mouth</text>
+
+      <rect class="svg-box" x="440" y="112" width="168" height="72" rx="5"/>
+      <text class="svg-lbl" x="524" y="138" text-anchor="middle">TB6612 #2</text>
+      <text class="svg-note" x="524" y="157" text-anchor="middle">eyes</text>
+
+      <rect class="svg-box" x="20" y="206" width="112" height="52" rx="5"/>
+      <text class="svg-lbl" x="76" y="228" text-anchor="middle">1S LiPo</text>
+      <text class="svg-note" x="76" y="245" text-anchor="middle">3.7 V, or 3 × AA</text>
+
+      <path class="w w-pwr" d="M132,63 H176" marker-end="url(#ah)"/>
+
+      <path class="w w-pwr" d="M328,100 H372 V44 H440" marker-end="url(#ah)"/>
+      <path class="w w-pwr" d="M372,100 V136 H440" marker-end="url(#ah)"/>
+      <circle class="d-pwr" cx="372" cy="100" r="4"/>
+      <text class="svg-tag" x="384" y="92">3V3 → VCC</text>
+
+      <path class="w w-vm" d="M132,232 H404 V68 H440" marker-end="url(#ah)"/>
+      <path class="w w-vm" d="M404,232 V160 H440" marker-end="url(#ah)"/>
+      <circle cx="404" cy="232" r="4" fill="var(--w-vm)"/>
+      <text class="svg-tag" x="196" y="224">3.7–4.5 V → VM</text>
+
+      <path class="w w-vm" d="M300,232 V286"/>
+      <line class="w w-vm" x1="286" y1="288" x2="314" y2="288"/>
+      <line class="w w-vm" x1="286" y1="298" x2="314" y2="298"/>
+      <path class="w w-gnd" d="M300,300 V336"/>
+      <circle cx="300" cy="232" r="4" fill="var(--w-vm)"/>
+      <text class="svg-note" x="322" y="288">470–1000 µF</text>
+      <text class="svg-note" x="322" y="303">bulk, at the drivers</text>
+
+      <path class="bus" d="M64,336 H620"/>
+      <path class="w w-gnd" d="M76,258 V336"/>
+      <path class="w w-gnd" d="M252,146 V336"/>
+      <path class="w w-gnd" d="M470,92 V336"/>
+      <path class="w w-gnd" d="M560,184 V336"/>
+      <circle class="d-gnd" cx="76" cy="336" r="4"/>
+      <circle class="d-gnd" cx="252" cy="336" r="4"/>
+      <circle class="d-gnd" cx="300" cy="336" r="4"/>
+      <circle class="d-gnd" cx="470" cy="336" r="4"/>
+      <circle class="d-gnd" cx="560" cy="336" r="4"/>
+
+      <text class="svg-lbl" x="640" y="341">COMMON GROUND</text>
+      <text class="svg-note" x="640" y="358">every ground ties here</text>
+    </svg>
+    </div>
+    <figcaption>Two independent supplies, one shared return. The ESP32 runs from USB on
+    the bench; the motors run from their own cell. Without the common ground the drivers
+    see no valid logic levels and the motors either sit dead or twitch at random.</figcaption>
+  </figure>
+
+  <div class="callout c-danger">
+    <span class="k">Do not</span>
+    <p><strong>Never tie <code>VM</code> to <code>VCC</code>, and never run the motors from
+    the ESP32's 3V3 pin — not even though the motors are 3 V rated.</strong> The question is
+    current, not voltage. That pin is the output of the devkit's little AMS1117 regulator,
+    already feeding the ESP32's own ~250 mA WiFi bursts, off a 500 mA USB budget. One of
+    these gearmotors pulls several hundred mA stalled.</p>
+    <p>And phase 1 <em>stalls them deliberately</em> — that is what homing into a hard stop
+    is. Three axes, ~900 ms each, at the worst-case draw. The regulator browns out, the
+    ESP32's brownout detector fires, and it resets mid-home.</p>
+  </div>
+
+  <div class="callout c-warn">
+    <span class="k">Motor supply — these are 3 V motors</span>
+    <p>Aim for <strong>3.7–4.5 V</strong> on <code>VM</code>: a single LiPo cell, or 3 × AA.
+    The TB6612 drops roughly 0.3–0.5 V across the bridge, so 3 V in would leave the motor
+    short; 3.7 V in lands about 3.3 V at the motor, and duty does the rest of the trimming.
+    Do not use the bear's original 6 V — that fed the whole toy, and the servo amplifier
+    never put the full rail across a motor.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">Figure 2</span>
+    <h2>Signal wiring, pin to pin</h2>
+    <p class="prose">Both drivers take their logic pins in the same physical order, so if you
+    lay them out as shown the runs stay parallel and nothing crosses. Motor supply is in
+    Figure 1 — this is everything else.</p>
+  </div>
+
+  <figure>
+    <div class="figscroll">
+    <svg viewBox="0 0 900 700" role="img" aria-label="Pin-to-pin signal wiring from the ESP32 to both TB6612 drivers, and from the driver outputs to the three motors.">
+      <rect class="svg-box" x="40" y="50" width="190" height="550" rx="7"/>
+      <text class="svg-lbl" x="135" y="80" text-anchor="middle">ESP32-WROOM-32</text>
+      <text class="svg-note" x="135" y="97" text-anchor="middle">go by silkscreen number</text>
+
+      <rect class="svg-box" x="450" y="130" width="190" height="300" rx="6"/>
+      <text class="svg-lbl" x="545" y="118" text-anchor="middle">TB6612 #1 — MOUTH</text>
+
+      <rect class="svg-box" x="450" y="470" width="190" height="180" rx="6"/>
+      <text class="svg-lbl" x="545" y="458" text-anchor="middle">TB6612 #2 — EYES</text>
+
+      <g class="svg-pin" text-anchor="end">
+        <text x="222" y="164">GPIO 25</text><text x="222" y="196">GPIO 33</text>
+        <text x="222" y="228">GPIO 32</text><text x="222" y="260">GPIO 21</text>
+        <text x="222" y="292">GPIO 26</text><text x="222" y="324">GPIO 27</text>
+        <text x="222" y="356">GPIO 14</text><text x="222" y="388">3V3</text>
+        <text x="222" y="420">GND</text><text x="222" y="504">GPIO 22</text>
+        <text x="222" y="536">GPIO 23</text><text x="222" y="568">GPIO 13</text>
+        <text x="222" y="600">GPIO 19</text>
+      </g>
+
+      <g class="svg-pin">
+        <text x="460" y="164">PWMA</text><text x="460" y="196">AIN2</text>
+        <text x="460" y="228">AIN1</text><text x="460" y="260">STBY</text>
+        <text x="460" y="292">BIN1</text><text x="460" y="324">BIN2</text>
+        <text x="460" y="356">PWMB</text><text x="460" y="388">VCC</text>
+        <text x="460" y="420">GND</text><text x="460" y="504">PWMA</text>
+        <text x="460" y="536">AIN2</text><text x="460" y="568">AIN1</text>
+        <text x="460" y="600">STBY</text><text x="460" y="632">VCC / GND</text>
+      </g>
+
+      <path class="w w-pwm"  d="M230,160 H450"/>
+      <path class="w w-dir"  d="M230,192 H450"/>
+      <path class="w w-dir"  d="M230,224 H450"/>
+      <path class="w w-stby" d="M230,256 H450"/>
+      <path class="w w-dir"  d="M230,288 H450"/>
+      <path class="w w-dir"  d="M230,320 H450"/>
+      <path class="w w-pwm"  d="M230,352 H450"/>
+      <path class="w w-pwr"  d="M230,384 H450"/>
+      <path class="w w-gnd"  d="M230,416 H450"/>
+
+      <path class="w w-pwm"  d="M230,500 H450"/>
+      <path class="w w-dir"  d="M230,532 H450"/>
+      <path class="w w-dir"  d="M230,564 H450"/>
+      <path class="w w-stby" d="M230,596 H450"/>
+
+      <path class="w w-pwr" d="M390,384 V628 H450"/>
+      <circle class="d-pwr" cx="390" cy="384" r="4"/>
+      <path class="w w-gnd" d="M414,416 V644 H450"/>
+      <circle class="d-gnd" cx="414" cy="416" r="4"/>
+
+      <path class="w w-mot" d="M640,180 H700 V190 H726"/>
+      <path class="w w-mot" d="M640,215 H700 V210 H726"/>
+      <circle class="svg-box" cx="752" cy="200" r="26"/>
+      <text class="svg-lbl" x="752" y="205" text-anchor="middle">M</text>
+      <text class="svg-note" x="752" y="248" text-anchor="middle">upper mouth</text>
+      <text class="svg-pin" x="645" y="176">AO1</text>
+      <text class="svg-pin" x="645" y="232">AO2</text>
+
+      <path class="w w-mot" d="M640,330 H700 V340 H726"/>
+      <path class="w w-mot" d="M640,365 H700 V360 H726"/>
+      <circle class="svg-box" cx="752" cy="350" r="26"/>
+      <text class="svg-lbl" x="752" y="355" text-anchor="middle">M</text>
+      <text class="svg-note" x="752" y="398" text-anchor="middle">lower mouth</text>
+      <text class="svg-pin" x="645" y="326">BO1</text>
+      <text class="svg-pin" x="645" y="382">BO2</text>
+
+      <path class="w w-mot" d="M640,530 H700 V540 H726"/>
+      <path class="w w-mot" d="M640,565 H700 V560 H726"/>
+      <circle class="svg-box" cx="752" cy="550" r="26"/>
+      <text class="svg-lbl" x="752" y="555" text-anchor="middle">M</text>
+      <text class="svg-note" x="752" y="598" text-anchor="middle">eyes</text>
+      <text class="svg-pin" x="645" y="526">AO1</text>
+      <text class="svg-pin" x="645" y="582">AO2</text>
+
+      <text class="svg-note" x="545" y="676" text-anchor="middle">#2: leave BIN1, BIN2 and PWMB unconnected</text>
+    </svg>
+    </div>
+    <figcaption>Thirteen signal wires plus logic power. Lines that cross without a filled
+    dot are not connected — the two verticals carrying 3V3 and GND down to driver #2 pass
+    over the eye-motor signals without touching them.</figcaption>
+  </figure>
+
+  <div class="callout c-warn">
+    <span class="k">Pin numbers, not pin positions</span>
+    <p>Hosyond ships both 30-pin and 38-pin ESP32 boards and the physical pin order differs
+    between them. Every one of them silkscreens the GPIO number next to the hole — find
+    <code>D25</code>, <code>D33</code> and so on by reading the board, not by counting from
+    a corner.</p>
+  </div>
+
+  <div class="callout c-danger">
+    <span class="k">Pull the standby pins down</span>
+    <p>Between reset and the first line of <code>setup()</code>, <code>GPIO 21</code> and
+    <code>GPIO 19</code> float — and a floating <code>STBY</code> can kick a motor on every
+    boot. Put a 10 kΩ from each to ground so the drivers stay disabled until firmware
+    deliberately enables them.</p>
+    <svg viewBox="0 0 280 132" width="280" height="132" role="img" aria-label="A 10 kilohm resistor from the GPIO 21 to STBY wire down to ground.">
+      <text class="svg-pin" x="4" y="34">GPIO 21</text>
+      <path class="w w-stby" d="M62,30 H206"/>
+      <text class="svg-pin" x="212" y="34">STBY</text>
+      <circle cx="132" cy="30" r="4" fill="var(--w-stby)"/>
+      <path class="w w-gnd" d="M132,30 V58"/>
+      <rect x="122" y="58" width="20" height="38" rx="2" fill="var(--surface)" stroke="var(--w-gnd)" stroke-width="2.4"/>
+      <text class="svg-pin" x="152" y="82">10 kΩ</text>
+      <path class="w w-gnd" d="M132,96 V108"/>
+      <line class="w w-gnd" x1="118" y1="109" x2="146" y2="109"/>
+      <line class="w w-gnd" x1="124" y1="116" x2="140" y2="116"/>
+      <line class="w w-gnd" x1="129" y1="123" x2="135" y2="123"/>
+    </svg>
+  </div>
+  <div class="callout c-warn">
+    <span class="k">Five wires per motor — use two, save three</span>
+    <p>Each plug carries <strong>2 motor wires</strong> (the pair with the suppression
+    capacitors across them) and <strong>3 potentiometer wires</strong> going to the plastic
+    body behind the gearbox. Only the motor pair goes to the driver. This matches the
+    "controllerless 5-wire servo" in the original design: the motor and its position sensor
+    sat in the head, and the servo amplifier lived on the main board.</p>
+    <figure style="box-shadow:none;border:0;padding:0;background:none;margin-top:6px">
+    <svg viewBox="0 0 340 172" width="340" height="172" role="img" aria-label="Each motor plug carries five wires: two from the motor with a suppression capacitor across them, and three from a potentiometer.">
+      <rect x="16" y="18" width="92" height="48" rx="4" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.5"/>
+      <text class="svg-lbl" x="62" y="48" text-anchor="middle">MOTOR</text>
+      <rect x="16" y="88" width="92" height="48" rx="4" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.5"/>
+      <text class="svg-lbl" x="62" y="112" text-anchor="middle">POT</text>
+      <text class="svg-note" x="62" y="128" text-anchor="middle">in the plastic body</text>
+
+      <path class="w w-mot" d="M108,32 H248"/>
+      <path class="w w-mot" d="M108,52 H248"/>
+      <path class="w w-mot" d="M150,32 V38"/>
+      <line class="w w-mot" x1="141" y1="38" x2="159" y2="38"/>
+      <line class="w w-mot" x1="141" y1="45" x2="159" y2="45"/>
+      <path class="w w-mot" d="M150,45 V52"/>
+      <text class="svg-note" x="166" y="47">suppression cap</text>
+
+      <path class="w" d="M108,98 H248"  stroke="var(--accent)"/>
+      <path class="w" d="M108,112 H248" stroke="var(--accent)"/>
+      <path class="w" d="M108,126 H248" stroke="var(--accent)"/>
+      <text class="svg-tag" x="196" y="95" text-anchor="end">end</text>
+      <text class="svg-tag" x="196" y="109" text-anchor="end">wiper</text>
+      <text class="svg-tag" x="196" y="123" text-anchor="end">end</text>
+
+      <rect x="248" y="14" width="44" height="128" rx="4" fill="var(--surface-2)" stroke="var(--ink-3)" stroke-width="1.5"/>
+      <text class="svg-lbl" x="270" y="162" text-anchor="middle">PLUG</text>
+      <text class="svg-pin" x="300" y="42">→ driver</text>
+      <text class="svg-pin" x="300" y="116">→ later</text>
+    </svg>
+    </figure>
+    <p>Tell them apart in thirty seconds: the <strong>motor pair reads 2–30 Ω</strong> and
+    twitches on a brief touch of a cell. On the <strong>pot, the two outer wires read a
+    fixed value</strong> — 5 k, 10 k, whatever it is — that does <em>not</em> change as you
+    turn the mechanism by hand, while each outer-to-wiper reading sweeps smoothly and the
+    two always sum to that total.</p>
+  </div>
+
+  <div class="callout c-warn">
+    <span class="k">The pots are good — wire them</span>
+    <p>Measured on the eyes axis: a <strong>5 kΩ</strong> pot whose wiper sweeps
+    <strong>0.45 k → 3.92 k</strong> smoothly, with no dead spots. That is absolute position
+    feedback, and it is the one thing <code>PLAN.md</code> assumed the bear did not have.
+    See <a href="#pots">Potentiometer feedback</a> below.</p>
+  </div>
+
+</section>
+
+<section id="pots">
+  <div class="sec-head">
+    <span class="eyebrow">Figure 3</span>
+    <h2>Potentiometer feedback</h2>
+    <p class="prose">Each pot is a plain voltage divider: both ends across 3.3 V and ground,
+    wiper to an analog input. Nothing you have already wired moves — these land on pins that
+    are input-only and free.</p>
+  </div>
+
+  <figure>
+    <div class="figscroll">
+    <svg viewBox="0 0 700 250" role="img" aria-label="Each potentiometer wires as a divider: one end to 3.3 volts, the other to ground, and the wiper to an ADC1 input on the ESP32.">
+      <rect class="svg-box" x="40" y="40" width="150" height="170" rx="6"/>
+      <text class="svg-lbl" x="115" y="72" text-anchor="middle">ESP32</text>
+      <text class="svg-pin" x="178" y="110" text-anchor="end">3V3</text>
+      <text class="svg-pin" x="178" y="145" text-anchor="end">GPIO 39</text>
+      <text class="svg-pin" x="178" y="180" text-anchor="end">GND</text>
+
+      <path class="w w-pwr" d="M190,106 H330"/>
+      <path class="w" d="M190,141 H300" stroke="var(--accent)"/>
+      <path class="w w-gnd" d="M190,176 H330"/>
+
+      <rect x="330" y="86" width="34" height="110" rx="3" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="2"/>
+      <text class="svg-lbl" x="347" y="72" text-anchor="middle">POT</text>
+      <text class="svg-note" x="347" y="216" text-anchor="middle">5 kΩ</text>
+      <path class="w" d="M300,141 H322 l10,-7 v14 l-10,-7" stroke="var(--accent)"/>
+
+      <text class="svg-tag" x="240" y="99">red</text>
+      <text class="svg-tag" x="240" y="134">brown</text>
+      <text class="svg-tag" x="240" y="169">green</text>
+
+      <text class="svg-note" x="400" y="112">end</text>
+      <text class="svg-note" x="400" y="147">wiper → ADC</text>
+      <text class="svg-note" x="400" y="182">end</text>
+
+      <text class="svg-note" x="400" y="30">0.45 k … 3.92 k across travel</text>
+      <text class="svg-note" x="400" y="48">≈ 0.30 V … 2.62 V at the wiper</text>
+    </svg>
+    </div>
+    <figcaption>One pot per axis. The 3V3 and GND ends are shared — run them from the same
+    rails as everything else and only the wiper needs its own pin. Three pots draw 2 mA total.</figcaption>
+  </figure>
+
+  <div class="callout c-danger">
+    <span class="k">3.3 V only</span>
+    <p>The pot ends go to <code>3V3</code> and <code>GND</code> — never 5 V, never
+    <code>VM</code>. The wiper feeds an ADC input directly, and anything above 3.3 V on that
+    pin damages it. Which end takes 3V3 is arbitrary; it only decides whether "up" reads high
+    or low, and the firmware calibrates either way.</p>
+  </div>
+
+  <div class="callout c-warn">
+    <span class="k">Why these pins</span>
+    <p><strong>ADC2 is unusable while WiFi is running</strong>, so pot wipers must land on
+    ADC1 — GPIO 32–39. GPIO 34, 36 and 39 are also <em>input-only</em>, which is perfect for
+    an analog input and costs no output pin. The paw button and I2S mic data line, which were
+    penciled in for 34/35, move to 35 and 15 when the audio phase arrives.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">Checklist</span>
+    <h2>Every wire, once</h2>
+    <p class="prose">Colours are suggestions, but keeping them consistent makes a
+    mis-wire visible from across the bench. Ticks are remembered in this browser.</p>
+  </div>
+
+  <div class="legend">
+    <div><span class="swatch" style="background:var(--w-pwr)"></span>3V3 logic power</div>
+    <div><span class="swatch" style="background:var(--w-gnd)"></span>Ground</div>
+    <div><span class="swatch" style="background:var(--w-vm)"></span>Motor supply</div>
+    <div><span class="swatch" style="background:var(--w-dir)"></span>Direction</div>
+    <div><span class="swatch" style="background:var(--w-pwm)"></span>PWM / speed</div>
+    <div><span class="swatch" style="background:var(--w-stby)"></span>Standby</div>
+    <div><span class="swatch" style="background:var(--w-mot)"></span>Motor leads</div>
+  </div>
+
+  <div id="tables"></div>
+
+  <div class="actions">
+    <button class="reset" id="reset" type="button">Clear all ticks</button>
+    <span class="eyebrow" id="saved"></span>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">Last step</span>
+    <h2>Before you power on</h2>
+  </div>
+  <ol class="checks">
+    <li><strong>Meter continuity between the two grounds.</strong> ESP32 <code>GND</code>
+    to each driver's <code>GND</code> should read a short. This is the single most common
+    cause of "the motors do nothing".</li>
+    <li><strong>Meter <code>VM</code> against <code>VCC</code>.</strong> They must
+    <em>not</em> be connected. If they beep, stop and find the bridge.</li>
+    <li><strong>Check the electrolytic's polarity.</strong> The stripe is the negative leg
+    and goes to ground. Backwards, it vents.</li>
+    <li><strong>Power the motor pack first, USB second</strong>, and watch for the ESP32
+    resetting when a motor starts — that's the brownout the bulk cap exists to prevent.</li>
+    <li><strong>Expect a motor to run backwards.</strong> Swap that motor's two output
+    leads, or flip <code>offsetA</code> / <code>offsetB</code> / <code>offsetC</code> in
+    <code>Calibrate.ino</code> from <code>1</code> to <code>-1</code>. The mouth needs
+    upper and lower opposed, so at least one of them very likely needs it.</li>
+    <li><strong>Then flash and open the console</strong> at 115200 and type
+    <code>help</code>. It stall-homes all three axes on boot, so keep a hand near the pack.</li>
+  </ol>
+</section>
+
+</div>
+
+<script>
+const GROUPS = [
+  { name:"TB6612 #1 — Mouth", note:"channel A = upper, channel B = lower", rows:[
+    ["GPIO 32","AIN1","upper mouth direction","dir"],
+    ["GPIO 33","AIN2","upper mouth direction","dir"],
+    ["GPIO 25","PWMA","upper mouth speed","pwm"],
+    ["GPIO 26","BIN1","lower mouth direction","dir"],
+    ["GPIO 27","BIN2","lower mouth direction","dir"],
+    ["GPIO 14","PWMB","lower mouth speed","pwm"],
+    ["GPIO 21","STBY","enables both channels","stby"],
+    ["3V3","VCC","logic supply","pwr"],
+    ["GND","GND","common ground","gnd"],
+  ]},
+  { name:"TB6612 #2 — Eyes", note:"channel A only; B side unused", rows:[
+    ["GPIO 13","AIN1","eyes direction","dir"],
+    ["GPIO 23","AIN2","eyes direction","dir"],
+    ["GPIO 22","PWMA","eyes speed","pwm"],
+    ["GPIO 19","STBY","enables the eyes driver","stby"],
+    ["3V3","VCC","logic supply","pwr"],
+    ["GND","GND","common ground","gnd"],
+  ]},
+  { name:"Power and passives", note:"off the ESP32, onto its own rail", rows:[
+    ["LiPo / 3×AA +","VM on #1","3.7–4.5 V motor supply","vm"],
+    ["LiPo / 3×AA +","VM on #2","3.7–4.5 V motor supply","vm"],
+    ["LiPo / 3×AA −","GND rail","ties the returns together","gnd"],
+    ["470–1000 µF","across VM / GND","absorbs motor inrush","vm"],
+    ["10 kΩ","GPIO 21 → GND","holds STBY low at boot","stby"],
+    ["10 kΩ","GPIO 19 → GND","holds STBY low at boot","stby"],
+  ]},
+  { name:"Potentiometer feedback", note:"wiper to ADC1; ends shared", rows:[
+    ["pot red (end)","3V3 rail","top of every divider","pwr"],
+    ["pot green (end)","GND rail","bottom of every divider","gnd"],
+    ["upper wiper (brown)","GPIO 34","upper mouth position","dir"],
+    ["lower wiper (brown)","GPIO 36","lower mouth position","dir"],
+    ["eyes wiper (brown)","GPIO 39","eyes position","dir"],
+  ]},
+  { name:"Motor leads", note:"the motor pair only — see above", rows:[
+    ["#1 AO1 / AO2","upper mouth motor","the 2–30 Ω pair, not the pot","mot"],
+    ["#1 BO1 / BO2","lower mouth motor","the 2–30 Ω pair, not the pot","mot"],
+    ["#2 AO1 / AO2","eyes motor","the 2–30 Ω pair, not the pot","mot"],
+  ]},
+];
+
+const KEY = "teddy-wiring-v1";
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { state = {}; }
+
+function save(){
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    const s = document.getElementById("saved");
+    s.textContent = "saved";
+    clearTimeout(save._t);
+    save._t = setTimeout(() => { s.textContent = ""; }, 1400);
+  } catch (e) { /* private window or blocked storage — ticks just won't persist */ }
+}
+
+let total = 0;
+const host = document.getElementById("tables");
+
+GROUPS.forEach((g, gi) => {
+  const wrap = document.createElement("div");
+  wrap.className = "tgroup";
+  const h = document.createElement("h3");
+  h.textContent = g.name;
+  const n = document.createElement("span");
+  n.className = "n";
+  n.textContent = g.note;
+  h.appendChild(n);
+  wrap.appendChild(h);
+
+  const sc = document.createElement("div");
+  sc.className = "tscroll";
+  const t = document.createElement("table");
+  t.innerHTML = "<thead><tr><th></th><th>From</th><th>To</th><th>What it does</th></tr></thead>";
+  const tb = document.createElement("tbody");
+
+  g.rows.forEach((r, ri) => {
+    const id = "g" + gi + "r" + ri;
+    total++;
+    const tr = document.createElement("tr");
+
+    const c0 = document.createElement("td");
+    c0.className = "chk";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.id = id;
+    cb.checked = !!state[id];
+    cb.setAttribute("aria-label", "Connected: " + r[0] + " to " + r[1]);
+    cb.addEventListener("change", () => {
+      state[id] = cb.checked;
+      tr.classList.toggle("done", cb.checked);
+      save();
+      tally();
+    });
+    c0.appendChild(cb);
+
+    const c1 = document.createElement("td");
+    c1.className = "from";
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.style.background = "var(--w-" + r[3] + ")";
+    c1.appendChild(dot);
+    c1.appendChild(document.createTextNode(r[0]));
+
+    const c2 = document.createElement("td");
+    c2.className = "to";
+    c2.textContent = r[1];
+
+    const c3 = document.createElement("td");
+    c3.className = "why";
+    c3.textContent = r[2];
+
+    tr.append(c0, c1, c2, c3);
+    if (cb.checked) tr.classList.add("done");
+    tb.appendChild(tr);
+  });
+
+  t.appendChild(tb);
+  sc.appendChild(t);
+  wrap.appendChild(sc);
+  host.appendChild(wrap);
+});
+
+document.getElementById("total").textContent = total;
+
+function tally(){
+  const n = Object.values(state).filter(Boolean).length;
+  const el = document.getElementById("count");
+  el.textContent = n;
+  el.style.color = (n === total) ? "var(--ok)" : "var(--accent)";
+}
+tally();
+
+document.getElementById("reset").addEventListener("click", () => {
+  state = {};
+  document.querySelectorAll('#tables input[type=checkbox]').forEach(cb => {
+    cb.checked = false;
+    cb.closest("tr").classList.remove("done");
+  });
+  save();
+  tally();
+});
+</script>

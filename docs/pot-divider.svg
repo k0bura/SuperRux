@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 250" width="700" height="250" role="img" aria-label="Each potentiometer wires as a divider: one end to 3.3V, the other to ground, wiper to an ADC1 input.">
+<style>
+ .b{fill:#f6f8fa;stroke:#6e7781;stroke-width:1.5}
+ .l{font:700 14px sans-serif;fill:#1f2328}
+ .n{font:11.5px sans-serif;fill:#57606a}
+ .p{font:500 12px monospace;fill:#1f2328}
+ .t{font:500 10.5px monospace;fill:#57606a}
+ .w{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<rect x="0" y="0" width="700" height="250" fill="#ffffff"/>
+<rect class="b" x="40" y="40" width="150" height="170" rx="6"/>
+<text class="l" x="115" y="72" text-anchor="middle">ESP32</text>
+<text class="p" x="178" y="110" text-anchor="end">3V3</text>
+<text class="p" x="178" y="145" text-anchor="end">GPIO 39</text>
+<text class="p" x="178" y="180" text-anchor="end">GND</text>
+<path class="w" stroke="#d1242f" d="M190,106 H330"/>
+<path class="w" stroke="#0969da" d="M190,141 H300"/>
+<path class="w" stroke="#384250" d="M190,176 H330"/>
+<rect x="330" y="86" width="34" height="110" rx="3" fill="#ffffff" stroke="#6e7781" stroke-width="2"/>
+<text class="l" x="347" y="72" text-anchor="middle">POT</text>
+<text class="n" x="347" y="216" text-anchor="middle">5 kohm</text>
+<path class="w" stroke="#0969da" d="M300,141 H322 l10,-7 v14 l-10,-7"/>
+<text class="t" x="240" y="99">red</text>
+<text class="t" x="240" y="134">brown</text>
+<text class="t" x="240" y="169">green</text>
+<text class="n" x="400" y="112">end</text>
+<text class="n" x="400" y="147">wiper to ADC1</text>
+<text class="n" x="400" y="182">end</text>
+<text class="n" x="400" y="30">0.45k to 3.92k across travel</text>
+<text class="n" x="400" y="48">about 0.30V to 2.62V at the wiper</text>
+</svg>

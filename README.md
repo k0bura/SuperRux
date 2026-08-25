@@ -71,9 +71,14 @@ the drivers stay disabled through boot.
 
 ```
 PLAN.md              full design: architecture, frame protocol, TTS, power
+docs/wiring.md       wiring reference with diagrams
+docs/wiring.html     the same as a self-contained page, with a tick-off checklist
 Calibrate/           phase 1 firmware — motors, pots, calibration console
 TeddyRuxbin.ino      original Uno test jig (reference only)
 ```
+
+Wiring, including the pot dividers and the power topology, is in
+**[docs/wiring.md](docs/wiring.md)**.
 
 ## Build
 
