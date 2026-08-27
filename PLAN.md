@@ -363,6 +363,54 @@ narration has only ~15 dB of frame-level dynamic range and yields almost no
 closure — clean TTS, with real silence between phrases, is the material this is
 for.
 
+### Realtime TTS → servos, running 2026-08-27
+
+Live speech animates the bear. Fish Audio streams PCM over its websocket, the
+envelope is computed per chunk as it arrives, and frames feed the board's
+`envstream` on the 20 ms grid while the audio plays on the desktop.
+
+    tools/speak.py "Hello Jeff! Do you want to read a story with me today?"
+
+Measured: **339 frames at 49.1 fps against a 50 fps grid, 0 starved, 0 underrun,
+0 dropped.** Voice id `33311739f2214b82b7ad64e46f077164`; credentials read from
+OS1's `.env`. Interpreter is `~/.venv/teddy` (numpy, soundfile, pyserial,
+fish-audio-sdk, python-dotenv) — OS1's own venv lacks numpy and pyserial and is
+left untouched.
+
+**`envstream` on the bear.** A 128-frame ring decouples serial jitter from the
+frame grid, prefilling 15 frames (~300 ms, as the frame protocol specifies)
+before the clock starts. On underrun the axes **hold** — a dropout is a missing
+command, not an instruction to move, and a jaw that snaps shut on every network
+hiccup looks far worse than one that pauses.
+
+Three things this shook out, all of which cost a run to find:
+
+- **Fish streams faster than realtime.** Pacing frame production off arrival
+  overran the ring and dropped 130 of 341 frames on the first attempt. The ring
+  is a jitter buffer, not a spool for a whole utterance. A reader thread now
+  fills queues and the main loop drains them on a wall clock — which is also
+  exactly realtime for the audio, so ffplay stays correctly fed with no rate
+  arithmetic anywhere.
+- **The idle timer must watch bytes, not ring occupancy.** Keyed off occupancy,
+  it stalls precisely when the ring is full, so the board timed out and
+  re-entered `envstream` mid-utterance — which presented as the banner printing
+  ~58 times, not as anything resembling a timeout.
+- **Realtime cannot normalise against the clip's 95th percentile** the way the
+  offline path does, and adaptive gain pumps. The voice and TTS settings are
+  fixed, so `REF_DB` is calibrated once and pinned (`--calibrate` prints it;
+  currently −17.0 dB for this voice at `FISH_VOLUME=6`). Recalibrate on a voice
+  or volume change, not per utterance.
+
+**Eyes, live.** The offline track centres a blink in a gap whose length it can
+measure. Live there is no lookahead, so a blink starts once the mouth has been
+shut briefly. Still placed on phrase structure, never on level.
+
+**Still missing for a real conversation:** the audio comes out of the desktop,
+not the bear — the MAX98357A is phase 3 — and the text is a command-line
+argument rather than Claude's streamed reply. Neither blocks the other; the
+`speak.py` structure is already the shape the server needs, with `gen()`
+standing in for the token stream it will eventually be handed.
+
 ### Phase A results — 2026-08-27
 
 The physical layer is decoded. `tools/decode_control_track.py` locks onto the

@@ -532,6 +532,119 @@ static void envPlay(uint8_t loops, bool log) {
   Serial.println("  done");
 }
 
+// -------------------------------------------------------- realtime streaming
+//
+// envplay plays an envelope the host computed in full. Realtime cannot: the
+// envelope is produced as the TTS audio arrives, so frames must be consumed as
+// they land while the tick keeps a rigid 20ms grid. A ring buffer decouples the
+// two - serial jitter fills it unevenly, the grid drains it evenly.
+//
+// On underrun the axes HOLD rather than brake or recentre. A dropout is a
+// missing command, not an instruction to move, and a jaw that snaps shut every
+// time the network hiccups looks far worse than one that pauses.
+
+static const uint8_t  RING     = 128;      // frames; 2.5 s at 20 ms
+static const uint8_t  PREFILL  = 15;       // ~300 ms, per the frame protocol
+
+struct Frame { uint8_t u, l, e; };
+static Frame  ring[RING];
+static uint8_t rHead = 0, rTail = 0;       // head == tail means empty
+
+static inline uint8_t ringCount() {
+  return (uint8_t)((rHead + RING - rTail) % RING);
+}
+
+static bool ringPush(uint8_t u, uint8_t l, uint8_t e) {
+  uint8_t nxt = (uint8_t)((rHead + 1) % RING);
+  if (nxt == rTail) return false;          // full; caller drops the frame
+  ring[rHead] = { u, l, e };
+  rHead = nxt;
+  return true;
+}
+
+// Returns false when a line said "end". *rx is set if any byte arrived, which
+// is what the idle timer must watch: keying it off the ring's occupancy stalls
+// the timer exactly when the ring is full, and the board then times out
+// mid-utterance.
+static bool streamIngest(uint16_t *dropped, bool *rx) {
+  static char    line[24];
+  static uint8_t li = 0;
+  while (Serial.available()) {
+    char c = Serial.read();
+    *rx = true;
+    if (c == '\r') continue;
+    if (c != '\n') { if (li < sizeof(line) - 1) line[li++] = c; continue; }
+    line[li] = 0;
+    uint8_t n = li;
+    li = 0;
+    if (!n) continue;
+    if (!strncmp(line, "end", 3)) return false;
+    char *c1 = strchr(line, ',');
+    if (!c1) continue;
+    *c1 = 0;
+    char *c2 = strchr(c1 + 1, ',');
+    if (c2) *c2 = 0;
+    if (!ringPush(constrain(atoi(line),   0, 100),
+                  constrain(atoi(c1 + 1), 0, 100),
+                  c2 ? constrain(atoi(c2 + 1), 0, 100) : EYES_NEUTRAL)) {
+      (*dropped)++;
+    }
+  }
+  return true;
+}
+
+static void envStream(uint16_t idle_ms) {
+  if (!mouthReady()) { Serial.println("  mouth not calibrated"); return; }
+  rHead = rTail = 0;
+  streamStop();
+
+  Serial.printf("  streaming - u,l,e per line, 'end' to stop (prefill %u)\n",
+                PREFILL);
+
+  uint16_t played = 0, under = 0, dropped = 0;
+  bool     open = true;
+  uint32_t lastRx = millis();
+
+  // Prefill before starting the clock, so ordinary jitter does not underrun
+  // the very first frames.
+  while (open && ringCount() < PREFILL && millis() - lastRx < idle_ms) {
+    bool rx = false;
+    open = streamIngest(&dropped, &rx);
+    if (rx) lastRx = millis();
+    yield();
+  }
+
+  uint32_t next = millis();
+  Frame    last = { 0, 0, EYES_NEUTRAL };
+
+  while (millis() - lastRx < idle_ms) {
+    bool rx = false;
+    if (open) open = streamIngest(&dropped, &rx);
+    if (rx) lastRx = millis();
+
+    if ((int32_t)(millis() - next) < 0) { yield(); continue; }
+    next += FRAME_MS;
+
+    if (ringCount()) {
+      last  = ring[rTail];
+      rTail = (uint8_t)((rTail + 1) % RING);
+      played++;
+    } else {
+      if (!open) break;                    // host said end and we have drained
+      under++;                             // hold `last`; do not brake
+    }
+
+    axisTick(AX_UPPER, last.u, STREAM_TOL);
+    axisTick(AX_LOWER, last.l, STREAM_TOL);
+    axisTick(AX_EYES,  last.e, STREAM_TOL);
+
+    if ((int32_t)(millis() - next) > 0) next = millis() + FRAME_MS;
+  }
+
+  streamStop();
+  Serial.printf("  played %u  underrun %u  dropped %u\n", played, under, dropped);
+}
+
 // ------------------------------------------------------------ stream bench
 //
 // Feed the tick a synthetic envelope so the mechanism's tracking can be watched
@@ -749,6 +862,7 @@ static void help() {
     "                        non-blocking tick; uscale = upper's swing as %% of lower\n"
     "  envload <n>           then send n lines of upper,lower (0-100)\n"
     "  envplay [loops] [log] play the loaded envelope through the jaw\n"
+    "  envstream [idle_ms]   consume u,l,e frames live; 'end' or idle stops\n"
     "  calib <axis>          visit both stops, record adc endpoints to NVS\n"
     "  g <NAME>              run a gesture\n"
     "  demo                  run every gesture in turn\n"
@@ -936,6 +1050,11 @@ static void handle(char *line) {
     return;
   }
 
+  if (!strcmp(cmd, "envstream")) {
+    envStream(a1 ? (uint16_t)atoi(a1) : 3000);
+    flushInput();
+    return;
+  }
   if (!strcmp(cmd, "envload")) {
     if (!a1) { Serial.println("  need a frame count"); return; }
     envLoad(atoi(a1));
