@@ -380,9 +380,9 @@ static void mouthPct(uint8_t pct, int tolerance = 90) {
 // once it arrives. Timing is a consequence of the mechanism, not a guess.
 struct GStep { uint8_t ax; uint8_t pct; uint16_t dwell; };
 
-// Eyes only for now - the mouth motors are not wired or calibrated yet.
-// pct 0 is eyelids down (closed), 100 is fully up.
-static const GStep G_NEUTRAL[]   = { {AX_EYES,65,0} };
+// AX_EYES: pct 0 is eyelids down (closed), 100 is fully up.
+// AX_JAW:  pct 0 is mouth shut, 100 is fully open - both motors, moved together.
+static const GStep G_NEUTRAL[]   = { {AX_JAW,0,0},   {AX_EYES,65,0} };
 static const GStep G_BLINK[]     = { {AX_EYES,0,70},  {AX_EYES,65,0} };
 static const GStep G_SLOWBLINK[] = { {AX_EYES,0,320}, {AX_EYES,65,0} };
 static const GStep G_LOOK_UP[]   = { {AX_EYES,100,600},{AX_EYES,65,0} };
@@ -398,9 +398,32 @@ static const GStep G_DART[]      = { {AX_EYES,95,180},{AX_EYES,25,180},
 struct Gesture { const char *name; const GStep *steps; uint8_t n; };
 
 #define G(x) { #x, G_##x, sizeof(G_##x) / sizeof(GStep) }
+// Mouth, and mouth against eyes. Dwells are short where the shape matters and
+// long where the pose does - a yawn reads as a yawn only if it holds.
+static const GStep G_TALK[]      = { {AX_JAW,55,90}, {AX_JAW,10,70},
+                                     {AX_JAW,75,110},{AX_JAW,15,80},
+                                     {AX_JAW,45,90}, {AX_JAW,0,0} };
+static const GStep G_CHATTER[]   = { {AX_JAW,50,45}, {AX_JAW,5,45},
+                                     {AX_JAW,50,45}, {AX_JAW,5,45},
+                                     {AX_JAW,50,45}, {AX_JAW,0,0} };
+static const GStep G_YAWN[]      = { {AX_EYES,20,250},{AX_JAW,100,900},
+                                     {AX_EYES,0,300}, {AX_JAW,20,200},
+                                     {AX_JAW,0,0},    {AX_EYES,65,0} };
+static const GStep G_LAUGH[]     = { {AX_EYES,30,0},  {AX_JAW,70,90},
+                                     {AX_JAW,25,70},  {AX_JAW,70,90},
+                                     {AX_JAW,25,70},  {AX_JAW,65,90},
+                                     {AX_JAW,0,0},    {AX_EYES,65,0} };
+static const GStep G_SURPRISE[]  = { {AX_EYES,100,0}, {AX_JAW,90,650},
+                                     {AX_JAW,0,120},  {AX_EYES,65,0} };
+static const GStep G_GREET[]     = { {AX_EYES,100,200},{AX_JAW,60,120},
+                                     {AX_JAW,10,90},   {AX_JAW,55,120},
+                                     {AX_JAW,0,150},   {AX_EYES,0,90},
+                                     {AX_EYES,65,0} };
+
 static const Gesture GESTURES[] = {
   G(NEUTRAL), G(BLINK), G(SLOWBLINK), G(LOOK_UP),
   G(WIDE), G(SLEEPY), G(PEEK), G(DART),
+  G(TALK), G(CHATTER), G(YAWN), G(LAUGH), G(SURPRISE), G(GREET),
 };
 #undef G
 static const uint8_t N_GESTURES = sizeof(GESTURES) / sizeof(Gesture);
