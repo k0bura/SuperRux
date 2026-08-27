@@ -151,11 +151,24 @@ static void rawBrake(uint8_t ax) {
   }
 }
 
+// A duty that will actually move this axis. min_duty is the measured breakaway;
+// base is the nominal duty for the operation. The mouth motors break away near
+// the top of the range, so a fixed nominal below that silently does nothing.
+// Axes whose breakaway is low (the eyes) keep the nominal duty untouched.
+static const int DUTY_HEADROOM = 25;
+
+static int dutyFor(uint8_t ax, int base) {
+  int d = axes[ax].minDuty + DUTY_HEADROOM;
+  if (d < base) d = base;
+  if (d > 255)  d = 255;
+  return d;
+}
+
 // Drive to a stop and terminate on arrival rather than on a timer. Returns the
 // reading at the stop. dir +1 drives away from home, -1 toward it.
 static int driveToStop(uint8_t ax, int dir) {
   Axis &a = axes[ax];
-  rawDrive(ax, dir, HOME_DUTY);
+  rawDrive(ax, dir, dutyFor(ax, HOME_DUTY));
   int last = readPot(ax);
   uint32_t t0 = millis(), stable = millis();
   while (millis() - t0 < HOME_TIMEOUT) {
@@ -189,7 +202,7 @@ static void homeAxis(uint8_t ax) {
     Serial.printf("  %-5s homed in %lums, adc %d\n",
                   a.name, (unsigned long)(millis() - t0), at);
   } else {
-    rawDrive(ax, a.closeDir, HOME_DUTY);
+    rawDrive(ax, a.closeDir, dutyFor(ax, HOME_DUTY));
     delay(HOME_MS);
     rawBrake(ax);
     a.posMs = 0;
@@ -200,7 +213,7 @@ static void homeAxis(uint8_t ax) {
 // dir: +1 away from the home stop, -1 toward it.
 static void moveMs(uint8_t ax, int dir, uint16_t ms, int duty) {
   Axis &a = axes[ax];
-  if (duty < a.minDuty) duty = a.minDuty;
+  duty = dutyFor(ax, duty);
   rawDrive(ax, dir, duty);
   delay(ms);
   rawBrake(ax);
@@ -224,7 +237,8 @@ static void gotoPctPot(uint8_t ax, uint8_t pct, int tolerance, bool verbose) {
   // Every observed error was an undershoot, so the taper was bottoming out below
   // what keeps the axis moving. min_duty is breakaway-from-rest; sustaining
   // motion under load needs more, and a narrower band holds duty up for longer.
-  int     floorD = a.minDuty + 20; if (floorD > RUN_DUTY - 20) floorD = RUN_DUTY - 20;
+  int     topD   = dutyFor(ax, RUN_DUTY);
+  int     floorD = a.minDuty + 20; if (floorD > topD - 20) floorD = topD - 20;
   int     band   = abs(span) / 8;  if (band < 60) band = 60;
   int     fine   = band / 2;       // inside this, pulse instead of driving on
   const int TOL  = tolerance;
@@ -234,7 +248,7 @@ static void gotoPctPot(uint8_t ax, uint8_t pct, int tolerance, bool verbose) {
     int err = target - readPot(ax);
     if (abs(err) <= TOL) break;
     int mag  = abs(err); if (mag > band) mag = band;
-    int duty = floorD + (int)((int32_t)(RUN_DUTY - floorD) * mag / band);
+    int duty = floorD + (int)((int32_t)(topD - floorD) * mag / band);
     int dir  = (err > 0) ? sign : -sign;
     if (abs(err) < fine) {
       // Close in: drive a short burst, brake, let it settle, then re-measure.
