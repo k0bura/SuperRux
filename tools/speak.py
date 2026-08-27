@@ -136,7 +136,9 @@ def main():
     ap.add_argument('--port', default='/dev/ttyUSB0')
     ap.add_argument('--voice', default=VOICE_ID)
     ap.add_argument('--lead', type=int, default=140,
-                    help='ms the jaw is commanded ahead of the audio')
+                    help='ms the jaw leads the sound; negative puts it behind')
+    ap.add_argument('--cushion', type=int, default=200, metavar='MS',
+                    help='ALSA prefill; lower is tighter but risks underruns')
     ap.add_argument('--no-board', action='store_true')
     ap.add_argument('--calibrate', action='store_true',
                     help='print level stats instead of animating')
@@ -176,10 +178,15 @@ def main():
 
     board = None if a.no_board else open_board(a.port)
     env = Envelope()
-    player = subprocess.Popen(
-        ['ffplay', '-hide_banner', '-loglevel', 'quiet', '-nodisp', '-autoexit',
-         '-f', 's16le', '-ar', str(SAMPLE_RATE), '-ac', '1', '-'],
-        stdin=subprocess.PIPE)
+    # aplay, not ffplay. ffplay buffers raw PCM before it starts, and because
+    # this loop feeds at exactly realtime it never catches that up -- the startup
+    # buffer becomes permanent delay, audible as the voice trailing the jaw even
+    # at --lead 0. aplay writes near-straight to ALSA.
+    #
+    # Spawned later, once the cushion exists: started here it holds the device
+    # open through the second or so before Fish returns any audio, and reports
+    # that wait as a multi-second underrun.
+    player = None
 
     # Fish streams audio faster than realtime, so frames must be paced against a
     # wall clock, not against arrival. Producing at arrival rate overruns the
@@ -212,8 +219,37 @@ def main():
 
     pcm = bytearray()
     bpf = int(SAMPLE_RATE * 2 * FRAME_MS / 1000.0)
-    lead_frames = max(0, int(a.lead / FRAME_MS))
-    nframes = under = 0
+
+    # ALSA needs a cushion. Fed exactly 20ms per 20ms tick it underruns on the
+    # first scheduling hiccup, so the loop writes `cushion` ms up front. That
+    # cushion is latency -- the audio you hear is that far behind the write --
+    # but it is a known constant, so the frames are delayed to match instead of
+    # leaving it for the ear to fight. Net: the jaw leads the *sound* by --lead.
+    cushion_bytes = int(SAMPLE_RATE * 2 * a.cushion / 1000.0)
+    net = a.cushion - a.lead
+    delay_frames = max(0, int(round(net / FRAME_MS)))     # hold frames back
+    lead_frames  = max(0, int(round(-net / FRAME_MS)))    # hold audio back
+    nframes = under = ticks = 0
+
+    t_fill = time.time()
+    while len(pcm) < cushion_bytes and not done.is_set() and time.time() - t_fill < 20:
+        while audio:
+            pcm += audio.popleft()
+        time.sleep(0.004)
+    while audio:
+        pcm += audio.popleft()
+
+    # Buffer and period pinned rather than left to aplay's defaults, so the
+    # cushion above actually corresponds to what ALSA holds.
+    player = subprocess.Popen(
+        ['aplay', '-q', '-f', 'S16_LE', '-r', str(SAMPLE_RATE), '-c', '1',
+         '--buffer-time=%d' % (a.cushion * 1000 * 2),
+         '--period-time=%d' % (FRAME_MS * 1000), '-'],
+        stdin=subprocess.PIPE)
+    if pcm:
+        player.stdin.write(bytes(pcm[:cushion_bytes]))
+        player.stdin.flush()
+        del pcm[:cushion_bytes]
     t0 = time.time()
     next_t = t0
 
@@ -230,16 +266,17 @@ def main():
                 continue
             next_t += FRAME_MS / 1000.0
 
-            if frames:
+            ticks += 1
+            if frames and ticks > delay_frames:
                 u, l, e = frames.popleft()
                 nframes += 1
                 if board:
                     board.write(b'%d,%d,%d\n' % (u, l, e))
                     board.flush()
-            elif not done.is_set():
+            elif not done.is_set() and ticks > delay_frames:
                 under += 1
 
-            if nframes > lead_frames and len(pcm) >= bpf:
+            if ticks > lead_frames and len(pcm) >= bpf:
                 player.stdin.write(bytes(pcm[:bpf]))
                 player.stdin.flush()
                 del pcm[:bpf]
@@ -262,11 +299,12 @@ def main():
             time.sleep(0.6)
             sys.stdout.write(board.read(4096).decode('utf-8', 'replace'))
             board.close()
-        try:
-            player.stdin.close()
-        except Exception:
-            pass
-        player.wait()
+        if player:
+            try:
+                player.stdin.close()
+            except Exception:
+                pass
+            player.wait()
 
 
 if __name__ == '__main__':

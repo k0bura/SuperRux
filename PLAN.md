@@ -405,6 +405,29 @@ Three things this shook out, all of which cost a run to find:
 measure. Live there is no lookahead, so a blink starts once the mouth has been
 shut briefly. Still placed on phrase structure, never on level.
 
+**Audio playback: aplay, and pin its buffer.** Three findings, each of which
+presented as "the audio is delayed":
+
+- **ffplay is the wrong player here.** It buffers raw PCM before starting, and
+  because this loop feeds at exactly realtime it never catches that up — the
+  startup buffer becomes permanent delay, audible as the voice trailing the jaw
+  even at `--lead 10`. aplay writes near-straight to ALSA.
+- **ALSA needs a cushion, so account for it rather than fighting it.** Fed
+  exactly 20 ms per 20 ms tick it underruns on the first scheduling hiccup.
+  `--cushion` (default 200 ms) is written up front; since that is a known
+  constant latency, the frames are delayed by `cushion - lead` to match. So
+  `--lead` means what it should — **ms the jaw leads the sound** — and stays
+  tunable without the cushion leaking into it.
+- **Pin `--buffer-time` and `--period-time`.** On aplay's defaults the cushion
+  does not correspond to what ALSA actually holds, and it reported multi-second
+  underruns. Pinned, they disappear. Also spawn aplay *after* the cushion
+  exists: started earlier it holds the device open through the second before
+  Fish returns any audio and calls that wait an underrun.
+
+Verified: 469 frames at 49.8 fps over a 9.4 s utterance, 0 starved, 0 underrun,
+0 dropped, no ALSA complaints. `--lead 140` is the current default; retune by eye
+on a line with hard consonants, which give a crisp visual edge.
+
 **Still missing for a real conversation:** the audio comes out of the desktop,
 not the bear — the MAX98357A is phase 3 — and the text is a command-line
 argument rather than Claude's streamed reply. Neither blocks the other; the
