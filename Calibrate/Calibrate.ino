@@ -326,6 +326,52 @@ static void gotoPct(uint8_t ax, uint8_t pct) {
   moveMs(ax, delta > 0 ? +1 : -1, (uint16_t)abs(delta), RUN_DUTY);
 }
 
+// Both mouth motors have their own pot, so the mouth is driven as one closed
+// loop rather than two. runGesture() runs steps in order, so a mouth built from
+// a separate upper step and lower step lifts the lip, stops, then drops the jaw
+// - visibly wrong on a bear that is meant to be talking. Each axis still uses
+// its own calibration, so "60%" means 60% open on both regardless of which way
+// that axis's pot happens to run.
+static const uint8_t MOUTH_AX[2] = { AX_UPPER, AX_LOWER };
+
+static bool mouthReady() {
+  for (uint8_t i = 0; i < 2; i++) {
+    const Axis &a = axes[MOUTH_AX[i]];
+    if (a.potPin < 0 || a.adcHome < 0 || a.adcFar < 0) return false;
+  }
+  return true;
+}
+
+static void mouthPct(uint8_t pct, int tolerance = 90) {
+  int32_t span[2];
+  int target[2], sign[2], floorD[2], topD[2], band[2];
+  bool done[2] = { false, false };
+  for (uint8_t i = 0; i < 2; i++) {
+    uint8_t ax = MOUTH_AX[i];
+    target[i] = pctTarget(ax, pct, &span[i]);
+    sign[i]   = riseDir(ax);
+    topD[i]   = dutyFor(ax, RUN_DUTY);
+    floorD[i] = axes[ax].minDuty + 20;
+    if (floorD[i] > topD[i] - 20) floorD[i] = topD[i] - 20;
+    band[i]   = abs(span[i]) / 8; if (band[i] < 60) band[i] = 60;
+  }
+  uint32_t t0 = millis();
+  while (millis() - t0 < 3000 && !(done[0] && done[1])) {
+    for (uint8_t i = 0; i < 2; i++) {
+      uint8_t ax = MOUTH_AX[i];
+      if (done[i]) continue;
+      int err = target[i] - readPot(ax);
+      if (abs(err) <= tolerance) { rawBrake(ax); done[i] = true; continue; }
+      int mag = abs(err); if (mag > band[i]) mag = band[i];
+      int duty = floorD[i] + (int)((int32_t)(topD[i] - floorD[i]) * mag / band[i]);
+      rawDrive(ax, (err > 0) ? sign[i] : -sign[i], duty);
+    }
+    delay(15);   // one control tick for both axes
+  }
+  rawBrake(AX_UPPER);
+  rawBrake(AX_LOWER);
+}
+
 // ------------------------------------------------------------- gesture table
 // Named primitives as (axis, dir, duty, ms) sequences, const in flash.
 
@@ -366,7 +412,11 @@ static void runGesture(uint8_t gi) {
   for (uint8_t i = 0; i < g.n; i++) {
     const GStep &s = g.steps[i];
     Axis &a = axes[s.ax];
-    if (a.potPin >= 0 && a.adcHome >= 0 && a.adcFar >= 0) gotoPctPot(s.ax, s.pct, 90, false);
+    if (s.ax == AX_JAW) {
+      if (mouthReady()) mouthPct(s.pct, 90);
+    } else if (a.potPin >= 0 && a.adcHome >= 0 && a.adcFar >= 0) {
+      gotoPctPot(s.ax, s.pct, 90, false);
+    }
     if (s.dwell) delay(s.dwell);
   }
 }
