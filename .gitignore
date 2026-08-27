@@ -3,3 +3,10 @@ build/
 *.elf
 *.hex
 .DS_Store
+
+# original story tapes, 432MB, not redistributable
+ref/
+__pycache__/
+
+# generated TTS samples
+tts/

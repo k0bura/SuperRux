@@ -375,6 +375,230 @@ static void mouthPct(uint8_t pct, int tolerance = 90) {
   rawBrake(AX_LOWER);
 }
 
+// --------------------------------------------------------- streaming control
+//
+// gotoPctPot() and mouthPct() block until the axis arrives. That is right for a
+// gesture - "go to 40% and tell me when you are there" - and wrong for phase 4,
+// where a new jaw_state lands every frame and the target never stops moving. A
+// call that can block for 3s would stall the frame pipeline, and mouthPct's
+// done[] latch assumes a target that settles.
+//
+// These do exactly one control step and return. The caller owns the cadence.
+// Differences from the blocking path, all deliberate:
+//   - no pulse-and-settle phase. The 30ms drive / 70ms brake in gotoPctPot kills
+//     overshoot against a *static* target; against a moving one it is pure lag.
+//   - no latching deadband. Inside tolerance the axis brakes and holds, but the
+//     next tick re-evaluates: the stream may have moved on.
+//   - no trailing delay. Nothing here sleeps.
+//
+// Cost is one readPot() per axis (~1ms, 16 samples), so a jaw tick is ~2ms
+// against the 20ms frame budget.
+
+static const uint16_t FRAME_MS     = 20;   // phase 4 frame period
+static const int      STREAM_TOL   = 30;   // counts; tighter than mouthPct's 90
+// Streaming runs at full duty, not RUN_DUTY. RUN_DUTY exists so travel_ms means
+// something against a fixed reference; streaming has no such constraint and the
+// jaw needs every count/ms it can get to follow speech at all.
+static const int      STREAM_DUTY  = 255;
+
+// One control step toward pct. Returns the signed error in counts, or 0 if the
+// axis is not calibrated and cannot be driven closed-loop.
+static int axisTick(uint8_t ax, uint8_t pct, int tol, int *posOut = NULL) {
+  Axis &a = axes[ax];
+  if (a.potPin < 0 || a.adcHome < 0 || a.adcFar < 0) return 0;
+
+  int32_t span;
+  int     target = pctTarget(ax, pct, &span);
+  int     pos    = readPot(ax);
+  int     err    = target - pos;
+  if (posOut) *posOut = pos;      // the tick already paid for this read
+
+  if (abs(err) <= tol) { rawBrake(ax); return err; }
+
+  int topD   = dutyFor(ax, STREAM_DUTY);
+  int floorD = a.minDuty + 20; if (floorD > topD - 20) floorD = topD - 20;
+  int band   = abs(span) / 8;  if (band < 60) band = 60;
+  int mag    = abs(err); if (mag > band) mag = band;
+  int duty   = floorD + (int)((int32_t)(topD - floorD) * mag / band);
+
+  int sign = riseDir(ax);
+  rawDrive(ax, (err > 0) ? sign : -sign, duty);
+  return err;
+}
+
+// The jaw as two halves that need not agree. The original cassette drove upper
+// and lower separately - a mouth whose halves move as one reads as a hinge, not
+// as speech. Real articulation puts most of the travel on the lower jaw and a
+// smaller, softer motion on the muzzle.
+static void jawTickSplit(uint8_t upperPct, uint8_t lowerPct,
+                         int tol = STREAM_TOL) {
+  axisTick(AX_UPPER, upperPct, tol);
+  axisTick(AX_LOWER, lowerPct, tol);
+}
+
+// Both halves to one percentage - the old behaviour, kept for gestures.
+static void jawTick(uint8_t pct, int tol = STREAM_TOL) {
+  jawTickSplit(pct, pct, tol);
+}
+
+static void eyesTick(uint8_t pct, int tol = STREAM_TOL) {
+  axisTick(AX_EYES, pct, tol);
+}
+
+// Call when the stream stops. Leaving a duty applied would hold the motors
+// against whatever they last saw.
+static void streamStop() {
+  rawBrake(AX_UPPER);
+  rawBrake(AX_LOWER);
+  rawBrake(AX_EYES);
+}
+
+// ----------------------------------------------------------- envelope player
+//
+// Play a real envelope computed off real audio, so the mapping can be judged
+// against the mechanism before any of the server, network or frame protocol
+// exists. The host sends the whole envelope up front and the board plays it
+// from RAM: streaming it live would put serial jitter on the frame grid, and
+// 30s of frames is only 3KB.
+
+static const uint16_t MAX_ENV = 1500;          // 30 s at 20 ms
+static const uint8_t  EYES_NEUTRAL = 65;       // matches G_NEUTRAL
+static uint8_t  envU[MAX_ENV], envL[MAX_ENV], envE[MAX_ENV];
+static uint16_t envLen = 0;
+
+static void envLoad(uint16_t n) {
+  if (n > MAX_ENV) n = MAX_ENV;
+  Serial.printf("  send %u lines: upper,lower[,eyes] (0-100)\n", n);
+
+  uint16_t got = 0;
+  char     line[24];
+  uint8_t  li = 0;
+  uint32_t t0 = millis();
+
+  while (got < n && millis() - t0 < 60000) {
+    while (Serial.available()) {
+      char c = Serial.read();
+      if (c == '\r') continue;
+      if (c != '\n') { if (li < sizeof(line) - 1) line[li++] = c; continue; }
+      line[li] = 0;
+      char *c1 = li ? strchr(line, ',') : NULL;
+      if (c1) {
+        *c1 = 0;
+        char *c2 = strchr(c1 + 1, ',');
+        if (c2) *c2 = 0;
+        envU[got] = constrain(atoi(line),   0, 100);
+        envL[got] = constrain(atoi(c1 + 1), 0, 100);
+        // Eyes are optional: a two-column envelope leaves them at neutral.
+        envE[got] = c2 ? constrain(atoi(c2 + 1), 0, 100) : EYES_NEUTRAL;
+        got++;
+      }
+      li = 0;
+      t0 = millis();                       // idle timeout is per line, not total
+    }
+    yield();
+  }
+  envLen = got;
+  Serial.printf("  loaded %u frames (%.2fs)\n", envLen, envLen * FRAME_MS / 1000.0f);
+}
+
+static void envPlay(uint8_t loops, bool log) {
+  if (!envLen)      { Serial.println("  nothing loaded");     return; }
+  if (!mouthReady()) { Serial.println("  mouth not calibrated"); return; }
+  streamStop();
+
+  Serial.printf("  playing %u frames x%u\n", envLen, loops);
+  if (log) Serial.println("  ms,u_pct,l_pct,e_pct,upper_adc,lower_adc,eyes_adc");
+
+  uint32_t t0 = millis();
+  for (uint8_t rep = 0; rep < loops; rep++) {
+    uint32_t next = millis();
+    for (uint16_t i = 0; i < envLen; i++) {
+      while ((int32_t)(millis() - next) < 0) yield();
+      next += FRAME_MS;
+
+      int up = -1, lo = -1, ey = -1;
+      axisTick(AX_UPPER, envU[i], STREAM_TOL, &up);
+      axisTick(AX_LOWER, envL[i], STREAM_TOL, &lo);
+      axisTick(AX_EYES,  envE[i], STREAM_TOL, &ey);
+
+      if (log) Serial.printf("  %lu,%u,%u,%u,%d,%d,%d\n",
+                             (unsigned long)(millis() - t0),
+                             envU[i], envL[i], envE[i], up, lo, ey);
+
+      if ((int32_t)(millis() - next) > 0) next = millis() + FRAME_MS;
+    }
+  }
+  streamStop();
+  Serial.println("  done");
+}
+
+// ------------------------------------------------------------ stream bench
+//
+// Feed the tick a synthetic envelope so the mechanism's tracking can be watched
+// without a server, a network, or any audio. This is the functional form of the
+// bandwidth question: a jaw that cannot follow a 3Hz square wave cannot follow
+// speech either, and the log says how far behind it runs.
+
+static uint8_t envAt(const char *shape, float phase, uint8_t lo, uint8_t hi) {
+  float u;                                   // 0..1
+  if      (!strcmp(shape, "square")) u = (phase < 0.5f) ? 1.0f : 0.0f;
+  else if (!strcmp(shape, "ramp"))   u = phase;
+  else                               u = 0.5f + 0.5f * sinf(2.0f * PI * phase);
+  return lo + (uint8_t)((hi - lo) * u + 0.5f);
+}
+
+// uscale: the upper half's excursion as a percentage of the lower's. 100 moves
+// them together (a hinge); ~40 is closer to how a jaw actually opens.
+static void streamBench(uint8_t ax, const char *shape,
+                        float hz, uint16_t secs, uint8_t lo, uint8_t hi,
+                        uint8_t uscale = 100) {
+  bool jaw = (ax == AX_JAW);
+  if (jaw ? !mouthReady() : (axes[ax].adcHome < 0 || axes[ax].adcFar < 0)) {
+    Serial.println("  not calibrated - run 'calib' first");
+    return;
+  }
+
+  Serial.printf("  %s %s %.2fHz %us %u-%u%% uscale %u%%, frame %ums\n",
+                jaw ? "jaw" : axes[ax].name, shape, hz, secs, lo, hi,
+                uscale, FRAME_MS);
+  Serial.println("  ms,target_pct,upper_adc,lower_adc,err");
+
+  uint32_t t0 = millis();
+  uint32_t deadline = t0 + (uint32_t)secs * 1000;
+  uint32_t next = t0;
+
+  while (millis() < deadline) {
+    uint32_t now = millis();
+    // yield() while holding the frame grid: a bare spin starves the idle task
+    // and trips the watchdog on a long run. 1ms millis resolution means this
+    // costs nothing in timing accuracy.
+    if ((int32_t)(now - next) < 0) { yield(); continue; }
+    next += FRAME_MS;
+
+    float   ph  = fmodf((now - t0) / 1000.0f * hz, 1.0f);
+    uint8_t pct = envAt(shape, ph, lo, hi);
+
+    int err, up = -1, lo_adc = -1;
+    if (jaw) {
+      uint8_t upct = lo + (uint8_t)((pct - lo) * uscale / 100);
+      err = axisTick(AX_UPPER, upct, STREAM_TOL, &up);
+      axisTick(AX_LOWER, pct, STREAM_TOL, &lo_adc);
+    } else {
+      err = axisTick(ax, pct, STREAM_TOL, &up);
+    }
+
+    Serial.printf("  %lu,%u,%d,%d,%+d\n",
+                  (unsigned long)(now - t0), pct, up, lo_adc, err);
+
+    // If a frame overran - a long printf, a slow read - resync to the grid
+    // rather than free-running to catch up, which would drive the motors at
+    // whatever rate the loop happens to manage.
+    if ((int32_t)(millis() - next) > 0) next = millis() + FRAME_MS;
+  }
+  streamStop();
+  Serial.println("  done");
+}
+
 // ------------------------------------------------------------- gesture table
 // Named primitives as (axis, dir, duty, ms) sequences, const in flash.
 
@@ -521,6 +745,10 @@ static void help() {
     "  jaw <0-3>             quantized jaw state\n"
     "  pot [axis]            read pots; with an axis, stream 15s and report range\n"
     "  sweep <axis> [duty] [ms]   home, then drive stop-to-stop logging the pot\n"
+    "  stream <axis> <sine|square|ramp> [hz] [secs] [lo] [hi] [uscale]\n"
+    "                        non-blocking tick; uscale = upper's swing as %% of lower\n"
+    "  envload <n>           then send n lines of upper,lower (0-100)\n"
+    "  envplay [loops] [log] play the loaded envelope through the jaw\n"
     "  calib <axis>          visit both stops, record adc endpoints to NVS\n"
     "  g <NAME>              run a gesture\n"
     "  demo                  run every gesture in turn\n"
@@ -708,6 +936,17 @@ static void handle(char *line) {
     return;
   }
 
+  if (!strcmp(cmd, "envload")) {
+    if (!a1) { Serial.println("  need a frame count"); return; }
+    envLoad(atoi(a1));
+    return;
+  }
+  if (!strcmp(cmd, "envplay")) {
+    envPlay(a1 ? constrain(atoi(a1), 1, 20) : 1, a2 && !strcmp(a2, "log"));
+    flushInput();
+    return;
+  }
+
   int ax = a1 ? axisFromTok(a1[0]) : -1;
   if (ax < 0) { Serial.println("  bad or missing axis"); return; }
 
@@ -802,6 +1041,27 @@ static void handle(char *line) {
   if (!strcmp(cmd, "duty")) {
     if (!a2) { Serial.println("  need a value"); return; }
     axes[ax].minDuty = atoi(a2); saveConfig(); return;
+  }
+  if (!strcmp(cmd, "stream")) {
+    if (!a1 || !a2) { Serial.println("  need an axis and a shape"); return; }
+    int sax = axisFromTok(a1[0]);
+    if (sax < 0) { Serial.println("  bad axis"); return; }
+    if (strcmp(a2, "sine") && strcmp(a2, "square") && strcmp(a2, "ramp")) {
+      Serial.println("  shape: sine, square or ramp"); return;
+    }
+    float    hz   = a3 ? atof(a3) : 3.0f;      // ~ a fast syllable rate
+    char    *a4   = strtok(NULL, " ");
+    char    *a5   = strtok(NULL, " ");
+    char    *a6   = strtok(NULL, " ");
+    uint16_t secs = a4 ? atoi(a4) : 5;
+    uint8_t  lo   = a5 ? atoi(a5) : 0;
+    uint8_t  hi   = a6 ? atoi(a6) : 100;
+    char    *a7   = strtok(NULL, " ");
+    uint8_t  usc  = a7 ? atoi(a7) : 100;
+    if (hz <= 0.0f || hi <= lo || usc > 100) { Serial.println("  bad range"); return; }
+    streamBench(sax, a2, hz, secs, lo, hi, usc);
+    flushInput();
+    return;
   }
   if (!strcmp(cmd, "pos")) {
     if (!a2) { Serial.println("  need pct"); return; }

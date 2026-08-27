@@ -9,9 +9,10 @@ no gears replaced.
 
 ## Status
 
-**Phase 1 — bench calibration: done on the eyes axis.** Closed-loop positioning
-to ±25 ADC counts, repeatable to 1–2 counts on repeat visits. Mouth axes are
-wired for drive but their pots are not yet connected.
+**Phase 1 — bench calibration: done.** All three servos are wired, and the
+firmware calibrates and drives all of them: `upper`, `lower`, `eyes`, plus the
+virtual `jaw` axis that moves the two mouth motors in opposition. Closed-loop
+positioning on the eyes measured to ±25 ADC counts, repeatable to 1–2 counts.
 
 Full design, build phases, and open questions live in [PLAN.md](PLAN.md).
 

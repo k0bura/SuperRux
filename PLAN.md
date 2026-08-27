@@ -119,14 +119,379 @@ NVS; nothing needs a reflash.
 
 ### Still open
 
-- Only the **eyes** axis is wired and calibrated. Upper and lower mouth pots are
-  on GPIO 34 and 36 and read 0 — not yet connected.
-- The jaw is a *compound* axis (upper and lower opposed). Two pots, one logical
-  position. Needs thought: probably drive both to matching percentages and let
-  each close its own loop.
+- ~~The jaw's mechanical bandwidth is unmeasured~~ — **measured 2026-08-27, see
+  below.** It can track speech, with compressed excursion.
+- The jaw is a *compound* axis (upper and lower opposed): two pots, one logical
+  position. Implemented as `AX_JAW` — `mouthPct()` drives both to matching
+  percentages and lets each close its own loop. Written, but its behaviour under
+  a fast-changing speech envelope is untested.
 - PWM carrier is 1 kHz (`analogWrite` default). Inaudible now that nothing
   stalls, but it sits in the speech band and the mic will hear it during motion.
   Raise to ~20 kHz via `analogWriteFrequency()` before phase 4.
+
+## The original cassette control track — a ground-truth corpus
+
+`ref/the-third-crystal.zip` holds five original story tapes ripped to stereo
+FLAC, 44.1 kHz/16-bit, ~81 minutes total (provenance in Reference). They are not
+just content: the right channel is the **original servo control track**, and it
+survived the rip in all five files.
+
+That makes this a labeled dataset for the one thing this plan otherwise guesses
+at — what the jaw should do given the audio. Same three motors, same mechanism,
+so once the payload is decoded the positions should land on the calibrated ADC
+ranges directly. Phase A got the framing but not the payload; see below.
+
+### Measured — 2026-08-27
+
+| Property | Value |
+|---|---|
+| files | 5, stereo 44.1 kHz/16, 14.2–17.5 min each (~81 min) |
+| L/R correlation | +0.017 to +0.037 — the channels are unrelated |
+| left channel | story audio |
+| right channel | control track, peak 7080–10199 (healthy in all five) |
+| frame period | **17.1–17.3 ms (~58 Hz)** |
+| autocorrelation at that lag | 0.98 on a clean passage |
+
+Frame rate was measured two independent ways that agree: FFT autocorrelation
+over a 4 s window (17.08 ms / 58.6 Hz) and direct autocorrelation over 30 s
+(17.26 ms / 58.0 Hz). Lags of 5, 10, 12.5, 20, 25, 33.3, 40 and 50 ms all score
+at or below zero, so ~17.3 ms is the true frame period, not a harmonic.
+
+### Signal structure
+
+Per frame, from a sample-level dump:
+
+1. a **high-amplitude sync burst**, clearly above everything else in the frame
+2. a body of **variable-width half-cycles**
+3. a quiet inter-frame gap
+
+Information is carried in the **intervals between zero crossings** — pulse
+position, as the controllerless-servo design implies. It is *not* a bit-clocked
+binary stream: at fine resolution the intervals are continuous, not bimodal, and
+the count per frame varies 8–13. An early read of the gap histogram suggested
+self-clocking binary; higher resolution disproved it. Don't re-derive that.
+
+Tape level varies enough that a fixed-threshold burst detector silently fails on
+some passages — it found no sync at all in two of the five files at one sample
+point, while their correlation and peak amplitude matched the other three.
+**Adaptive gain is a decoder requirement, not an optional refinement.**
+
+### Measured — mouth axes, 2026-08-27
+
+Both mouth axes wired and calibrated. `sweep u 255` / `sweep l 255`, then the
+streaming tick against a synthetic envelope.
+
+| Property | upper | lower | eyes (for scale) |
+|---|---|---|---|
+| stop to stop | 752 → 4082 | 747 → 3959 | 146 → 2294 |
+| span | 3330 | 3212 | 2148 |
+| `min_duty` | 85 | 85 | 70 |
+| dead time | ~65 ms | ~65 ms | ~75 ms |
+| open-loop slew @ duty 255 | **4.93 counts/ms** | **4.76 counts/ms** | 0.95 @ duty 200 |
+
+**At equal duty all three axes are comparable.** The eyes measure **4.06
+counts/ms at duty 255** (136 → 3184 in ~750 ms, dead time ~25–50 ms), against
+the mouth's 4.9. The earlier "eyes are 5x slower" reading came from comparing
+duty 200 against duty 255 — at 200 the eyes take 2250 ms for the same travel, so
+**duty matters far more than the axis does.** Only measuring at matched duty
+settled it.
+
+Note the eyes' *mechanical* range runs to 3184 while the stored `adcFar` is
+2294: the endpoints were hand-tuned to the visual limits, as intended, so the
+usable range is 2148 counts and a blink is ~340 ms each way.
+
+**Closed-loop, streaming, duty 255.** Driving `stream j square 2 3 10 55` (a
+45-point commanded swing at 2 Hz) the jaw achieves **665–805 counts per 250 ms
+half-cycle — 24–29% of the usable range, about 60% of what was commanded.**
+Closed-loop slew runs 3.0–3.7 counts/ms, below the open-loop 4.9 because duty
+tapers as error closes.
+
+So: **syllable tracking works, at compressed excursion.** Roughly 25% of range at
+2 Hz, proportionally less as rate rises. The mechanism is a low-pass filter and
+will compress whatever it is handed.
+
+What this fixes in the design:
+
+- **Stream at duty 255, not `RUN_DUTY` 200.** At 200 the same test achieved only
+  ~1.9 counts/ms. `RUN_DUTY` exists so `travel_ms` means something against a
+  fixed reference; streaming has no such constraint. `STREAM_DUTY` is now 255.
+- **Compress the envelope before sending it.** Commanding 0–100% is wasted — the
+  jaw cannot get there and the loop just saturates. Map `jaw_state` into roughly
+  the lower half of the range and let the mechanism compress the rest.
+- **Lookahead ~120 ms, i.e. 6 frames at 20 ms.** The bare dead time is ~65 ms —
+  after a target flip the reading travels the wrong way that long before
+  reversing — but end-to-end against a real speech envelope the best
+  command-to-position correlation sits at **120–140 ms** of lag, because the
+  loop also needs time to close. The frame protocol's ~80 ms was too optimistic;
+  budget 6 frames, not 4.
+- **Pre-smooth the envelope to ~2 Hz** — measured, not estimated. Anything faster
+  is duty spent on motion the mechanism cannot execute.
+
+**Frequency response**, `stream j sine <hz> 3 10 55`, commanded swing 1253 counts:
+
+| Rate | Achieved | Ratio | Peak slew |
+|---|---|---|---|
+| 1 Hz | 1319 | 105% | 4.50 c/ms |
+| 2 Hz | 879 | **70%** | 5.55 |
+| 3 Hz | 526 | 42% | 5.75 |
+| 4 Hz | 303 | 24% | 4.55 |
+| 5 Hz | 173 | 14% | 3.85 |
+
+A clean first-order rolloff with the **−3 dB corner at 2 Hz**, falling as ~1/f
+above it. This is the single most important number for the audio→jaw mapping,
+and it bounds what any amount of cleverness upstream can achieve:
+
+| Speech structure | Rate | What the jaw renders |
+|---|---|---|
+| prosody, phrase rhythm | 1–3 Hz | 42–105% — **fully** |
+| syllables | 3–8 Hz | 14–42% — partially |
+| phonemes | 10–15 Hz | ~5% — **not at all** |
+
+**The mechanism renders prosody and syllable rhythm. It physically cannot render
+phoneme detail.** Viseme-accurate animation would be low-passed into nothing, so
+effort spent there buys almost no visible motion.
+
+### Upper and lower move separately
+
+The original cassette drove the two halves independently, and a mouth whose
+halves move as one reads as a hinge rather than as speech. `jawTickSplit(upper,
+lower)` takes two percentages; `jawTick(pct)` is now a wrapper for gestures.
+`stream` takes a trailing `uscale` — the upper's swing as a percentage of the
+lower's.
+
+Measured at 2 Hz, commanded vs achieved upper/lower ratio:
+
+| `uscale` | upper p-p | lower p-p | achieved |
+|---|---|---|---|
+| 100% | 896 | 923 | 97% |
+| 60% | 792 | 938 | 84% |
+| 40% | 585 | 895 | 65% |
+
+Achieved ratio runs higher than commanded because at 2 Hz both halves are
+slew-limited, so a smaller command does not shrink excursion proportionally.
+**Command roughly half the split you want to see** — ~20% for a visual 40%.
+
+**ADC headroom — not saturating, but thin.** Upper's far stop reads 4083 against
+a 4095 ceiling, which looked like clipping. It is not: both axes decelerate into
+their plateau over 2–3 samples and then sit with ±3 counts of noise rather than
+pinned at 4095, which is a mechanical stop, not a rail. But upper has ~12 counts
+of headroom, and **the ESP32's ADC reference is the internal bandgap, not the
+3V3 rail** — so a supply sag under motor inrush shifts the pot reading without
+shifting the reference, and the loop reads a false position. This is a second,
+independent reason for the separate regulator the Power section already calls
+for.
+
+### The envelope path — built and running on hardware
+
+The audio→jaw path exists end to end, off the bench, with no server, network or
+frame protocol involved.
+
+- **`tools/envelope.py`** — audio in, jaw envelope out. Tier 1 of the mapping:
+  20 ms frame RMS, gated, low-passed at the measured 2 Hz corner, with a faster
+  attack than release. `--csv` to inspect, `--send PORT` to play it on the bear.
+- **`envload <n>` / `envplay [loops] [log]`** — the board buffers a whole
+  envelope in RAM (1500 frames, 3 KB) and plays it on the frame grid. Streaming
+  it live would put serial jitter on that grid for no benefit.
+- **`--play PORT`** — same, but plays the audio through the desktop at the same
+  time so the sync can be judged by eye. The bear has no audio of its own until
+  phase 3, and waiting for that to see whether the mapping looks right would be
+  the wrong order to build in. `--lead MS` (default 120) is how far ahead of the
+  audio the jaw is commanded; tune it by eye, since the audio path has its own
+  start latency on top of the mechanism's lag.
+
+Verified on 12 s of real speech: **600 frames, mean frame interval 20.0 ms**,
+commanded lower 0–55% / upper 0–11%, achieved 1453 counts p-p on the lower and
+319 on the upper (a 22% ratio against 20% commanded), and **r = +0.76 between
+commanded percentage and achieved position** — the shortfall being the lag and
+rolloff already measured.
+
+Two things this shook out, both worth not rediscovering:
+
+- **The console's axis gate.** Every command below `int ax = axisFromTok(...)`
+  in `handle()` must take an axis as its first argument, or it dies with "bad or
+  missing axis". `envload`/`envplay` take a frame count, so they sit above it.
+- **Never send payload to a board that has not acknowledged.** Opening the port
+  resets the ESP32; anything written during boot is parsed as console commands.
+  `envelope.py` waits for the prompt, then for the `envload` acknowledgement,
+  before sending a single frame.
+
+**Do not pre-smooth to the mechanism's corner.** The obvious move — low-pass the
+envelope at the jaw's measured 2 Hz — is wrong, because the mechanism low-passes
+regardless and the two filters compound into ~1 Hz. Measured on the real jaw
+against a Fish Audio clip:
+
+| Software corner | Achieved p-p | Commanded closure | Corr | Lag |
+|---|---|---|---|---|
+| 2 Hz | 1501 | 5% | +0.920 | 120 ms |
+| 5 Hz | **1550** | **16%** | +0.881 | 140 ms |
+
+The lighter filter gets *more* excursion and three times the inter-phrase
+closure — and closure between phrases is most of what reads as speech. Let the
+mechanism be the filter; `CORNER_HZ` is 5 Hz. The lower correlation is the
+command carrying detail the jaw cannot follow, which costs nothing.
+
+**Eyes on the same path.** `envload` takes an optional third column and
+`envplay` ticks the eyes with it; a two-column envelope leaves them at neutral.
+The bench eye track is placed on **phrase structure, never on level** — blinks
+sit in the gaps where the mouth is shut, topped up to a natural idle rate when
+the phrasing does not supply enough. Amplitude-driven eyes look wrong, and
+nothing here is tempted by them.
+
+Measured on the Fish Audio clip, the two channels behave very differently:
+
+| Channel | Corr | Lag | Achieved p-p |
+|---|---|---|---|
+| jaw lower | +0.878 | 140 ms | 1553 |
+| eyes | **+0.997** | 60 ms | 993 |
+
+The eyes track almost perfectly because a 340 ms blink ramp sits well inside the
+mechanism's bandwidth; the jaw's 0.88 is the speech-rate detail it cannot
+follow. This is the clearest statement of the whole constraint: **commands inside
+the bandwidth are rendered faithfully, and only those.** It also means eye
+animation needs no cleverness to look right, while the jaw will always be an
+approximation.
+
+What the bench track cannot do is the part that needs meaning — look up on a
+question, widen on surprise. That needs the cue markup from Claude, and it is
+the one piece of the eye design still waiting on the server pipeline.
+
+**Known limitation of the tier-1 mapping:** it normalises against the 95th
+percentile with a floor *relative* to that, not an absolute dBFS gate. An
+absolute gate never fires on material with anything underneath it and the mouth
+hangs open for the whole clip. Even so, a story tape with music under the
+narration has only ~15 dB of frame-level dynamic range and yields almost no
+closure — clean TTS, with real silence between phrases, is the material this is
+for.
+
+### Phase A results — 2026-08-27
+
+The physical layer is decoded. `tools/decode_control_track.py` locks onto the
+frame structure of all five tapes and emits per-frame data as CSV. The payload
+*semantics* are not decoded — see below.
+
+    tools/decode_control_track.py "ref/<story>.flac" -o "ref/decoded/<story>.csv"
+
+Columns: `t_s, frame_ms, speech_energy, d5_ms … d15_ms`. All five stories are
+decoded to `ref/decoded/` — **200,785 frames**, gitignored with the rest of
+`ref/`. `speech_energy` is the left channel's envelope at each frame time,
+carried alongside so any analysis can correlate against the audio without
+re-reading the FLAC.
+
+| Story | Lock | Period | Frames |
+|---|---|---|---|
+| The Airship New | 93% | 17.98 ms | 34,461 |
+| Autumn Adventure New | 90% | 19.71 ms | 33,203 |
+| Lost in Boggley Woods | 84% | 16.71 ms | 50,900 |
+| The Third Crystal | 84% | 17.62 ms | 38,036 |
+| Wooly and the Giant Snowzos | 82% | 17.85 ms | 44,585 |
+
+**Sync and framing.** AGC-normalising against a 200 ms envelope makes one fixed
+threshold valid across a whole tape (envelope percentiles match to two decimals
+at t=120/300/500 s). The burst threshold still has to be picked per file — tape
+balance between burst and body varies — so it is calibrated on three short
+windows and then applied in one full pass. Frame lock: **82–95% on all five
+files.**
+
+**Frame period is per-tape, not universal:** 16.7, 17.6, 17.8, 17.9 and 19.7 ms
+across the five. Within one file, tape speed wanders 3.4% (frame duration
+17.979 ± 0.615 ms). Both mean the decoder must lock per file and normalise
+intervals by frame duration; nothing may assume a fixed 17.2 ms.
+
+**Frame layout**, from zero-crossing intervals. 76% of frames have exactly 18
+zero crossings, the rest 20/22/24 — always even:
+
+| Cols | Content |
+|---|---|
+| 0–3 | the sync burst's own crossings |
+| 4,6,8,10,12,14,16 | fixed markers, ~0.4 ms, std ~0.02 |
+| 5,7,9,11,13,15 | **six variable data intervals** |
+| 17, 18 | trailer, then the ~4.1 ms inter-frame gap |
+
+Seven fixed markers bracket six data fields. Six, not the three the earlier
+draft of this section predicted — so it is not simply one interval per motor.
+
+**The data is discrete, not continuous.** Column 9 resolves into three cleanly
+separated, *evenly spaced* levels — 0.62 / 1.07 / 1.52 ms, steps of 0.45 — with
+literally zero density in the gaps between them. The other columns show a sharp
+primary mode plus shoulders. These are symbol alphabets, not analogue positions.
+
+**Nothing here tracks speech amplitude.** Correlated against the story channel's
+energy, speed-normalised and detrended, no data column reaches r > 0.5 in *any*
+10 s window of a whole file; the best is 0.41. Detrending *lowers* the
+correlation (0.31 → 0.14), so what little exists lives in multi-second trends,
+not syllable-rate tracking. A direct "interval = jaw openness ∝ loudness"
+reading is therefore ruled out.
+
+The decode is nevertheless real: detrended lag-1 autocorrelation of the data
+columns is 0.90–0.96, so these are genuine smooth slowly-varying signals, not
+noise from a mis-locked detector.
+
+**Hypotheses tested and rejected**, so they are not re-tried:
+
+| Hypothesis | Result |
+|---|---|
+| Interval = servo position ∝ loudness | No 10 s window in a file reaches r > 0.5 |
+| Simple pulse count, `n × base unit` | Best residual 0.16 over units 0.20–0.70 ms (0.25 = random) |
+| Biphase mark / FM, as SMPTE timecode | Only 73% of frames give a consistent bit count; a correct decode would give ~99% |
+
+Biphase was the best of the three and is worth revisiting with a smarter cell
+threshold — the even zero-crossing count is still suggestive of it. The obstacle
+is that the wide intervals span 0.6–1.5 ms, too broad for one cell width, which
+hints at three symbol widths rather than two.
+
+### Not yet established
+
+- **The payload semantics.** Six discrete fields, three motors. Likely either a
+  digital word spanning several frames, or per-frame commands with channel
+  addressing. This is the remaining work, and it is real reverse engineering,
+  not a tuning pass.
+- Which field drives which motor, and absolute scaling onto the pot ADC ranges.
+- A caution for whoever picks this up: two scoring bugs already produced
+  convincing-looking wrong answers here. A lock score of "fraction of intervals
+  inside [13, 22] ms" is gamed by the re-trigger guard, which forces every
+  interval above 13 ms — it reported 100% lock on a detector that was simply
+  firing the moment the guard expired. Score *tightness around the median*
+  instead. And correlating without removing tape-speed common mode inflates
+  everything.
+
+### What the corpus is for
+
+**Phase A — decode.** *Physical layer done (see Phase A results); payload not.*
+`tools/decode_control_track.py` emits `t_s, frame_ms, speech_energy, d5..d15`
+per story. Of the three validations this section originally demanded, two passed
+— the fields evolve smoothly, and the frame structure is consistent across all
+five tapes — and **the third failed**: no field correlates with left-channel
+speech energy. That failure is the finding. It means the track is not an
+amplitude envelope in disguise, so the remaining work is decoding a digital
+payload rather than rescaling an analogue one.
+
+The fallback this section anticipated is now the live path: the raw interval
+vector *is* a usable feature vector even before the semantics are known.
+
+**Phase B — measure what the originals actually did.** This is the payoff:
+
+- **Lead/lag** — cross-correlate jaw against audio energy. This calibrates the
+  frame-protocol lookahead with evidence. The current ~80 ms is inferred from the
+  mechanism's 75 ms dead time, not from anything about speech.
+- **Rest position** — does the jaw fully close between words or hover open?
+- **Attack/release asymmetry** — almost certainly opens faster than it closes.
+- **How much jaw variance plain RMS explains.** The R² decides whether an
+  envelope suffices or spectral features are needed.
+- **Eyes vs. amplitude.** This plan asserts eyes follow meaning, not sound. Low
+  eye/energy correlation is direct evidence for the cue-track design; high
+  correlation would mean rethinking it.
+
+**Phase C — fit and evaluate.** Write the audio → `jaw_state` function using the
+measured attack/release, rest and gain; score against held-out stories.
+
+**Phase D — play an original through the pipeline.** Resample L to 16 kHz mono,
+resample the decoded track onto the 20 ms grid, emit through the frame protocol.
+The ideal phase 3/4 test article: the animation is known-good, so anything that
+looks wrong is firmware, lookahead or mechanism, never the envelope algorithm.
+It unconfounds two bugs that would otherwise mask each other.
+
+A and B are desktop-only and need no bear, so they run in parallel with wiring
+the mouth axes.
 
 ## Eyes follow the words, not the sound
 
@@ -334,7 +699,8 @@ Each phase is independently testable. Don't skip ahead.
    Written: `Calibrate/Calibrate.ino`, serial console at 115200.
    **Done on the eyes axis 2026-08-24** — closed-loop, ±25 counts, repeatable to
    1-2. Answered better than expected: the pots made stall-homing unnecessary.
-   Remaining: wire and calibrate the two mouth axes.
+   All three axes are wired and driven by the firmware. Remaining: measure the
+   jaw's slew rate (see Still open).
 2. **Server pipeline, desktop only** — mic in, endpointing, STT, Claude with
    search, sentence chunking, Fish Audio TTS with timestamps, play to laptop
    speakers. Print the envelope and cues to console. No bear involved.
@@ -376,3 +742,20 @@ path — nothing new to build on the bear, only content to produce. Do it whenev
   compiles unmodified on ESP32/STM32 despite `architectures=avr`.
 - Boards evaluated and rejected: STM32F103C8T6 (no WiFi, no I2S),
   STM32F411CEU6 (no WiFi), Pi Zero 2 W (~120mA idle kills battery).
+- **Original story tapes** — `ref/the-third-crystal.zip`, five stereo FLACs whose
+  right channel is the original servo control track. See the ground-truth corpus
+  section. 432 MB, gitignored.
+
+  Source: **"Teddy Ruxpin Tapes w/ Signals"**, World of Wonder 1986, digitised
+  from @Reminaprod's collection and uploaded to the Internet Archive
+  2023-04-22 by "Decode Document Digitize", described as *"Tapes with movement
+  data"* — the control track is the stated point of the upload, not a lucky
+  side effect of someone ripping both channels.
+
+  https://archive.org/details/the-third-crystal
+
+  The item offers **FLAC, WAV and VBR MP3** of the same five titles. Take FLAC or
+  WAV only. **Never the MP3** — a psychoacoustic codec assumes both channels are
+  something a human listens to, and it will quietly mangle a pulse train it
+  treats as inaudible noise. The whole corpus rests on that channel surviving
+  bit-exact.
