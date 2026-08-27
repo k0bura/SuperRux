@@ -74,12 +74,19 @@ the drivers stay disabled through boot.
 PLAN.md              full design: architecture, frame protocol, TTS, power
 docs/wiring.md       wiring reference with diagrams
 docs/wiring.html     the same as a self-contained page, with a tick-off checklist
+docs/how-it-works.md how the mouth is driven, and how the 1985 tape differed
+docs/how-it-works.html  the same with four measured diagrams
 Calibrate/           phase 1 firmware — motors, pots, calibration console
 TeddyRuxbin.ino      original Uno test jig (reference only)
 ```
 
 Wiring, including the pot dividers and the power topology, is in
 **[docs/wiring.md](docs/wiring.md)**.
+
+How the jaw is actually driven — loudness alone, no phonemes, and why the
+mechanism's 2 Hz limit makes that enough — is in
+**[docs/how-it-works.md](docs/how-it-works.md)**, alongside what the original
+cassette's control track did instead.
 
 ## Build
 

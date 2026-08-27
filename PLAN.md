@@ -808,6 +808,9 @@ path — nothing new to build on the bear, only content to produce. Do it whenev
 
 ## Reference
 
+- **How the mouth is driven** — `docs/how-it-works.md`, and the same with four
+  measured diagrams as `docs/how-it-works.html`. The explainer for why the jaw
+  follows loudness alone and how that differs from the tape's authored track.
 - Existing sketch: `TeddyRuxbin.ino` (Uno, TB6612 test jig, open-loop)
 - Motor library: `SparkFun_TB6612` — pure `pinMode`/`digitalWrite`/`analogWrite`,
   compiles unmodified on ESP32/STM32 despite `architectures=avr`.

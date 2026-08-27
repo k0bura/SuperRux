@@ -1,0 +1,445 @@
+<title>No Letters, Only Loudness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#F2F3F5; --panel:#FBFBFC; --ink:#191C22; --ink-2:#4A515E;
+  --muted:#6E7684; --rule:rgba(25,28,34,.14); --rule-2:rgba(25,28,34,.07);
+  --audio:#A9690A; --data:#0D646E; --audio-soft:rgba(169,105,10,.13);
+  --data-soft:rgba(13,100,110,.12); --warn:#9A3412;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#14171C; --panel:#1B1F26; --ink:#E7E9ED; --ink-2:#B4BBC6;
+    --muted:#8B94A2; --rule:rgba(231,233,237,.16); --rule-2:rgba(231,233,237,.08);
+    --audio:#E7A33C; --data:#4FB6C1; --audio-soft:rgba(231,163,60,.15);
+    --data-soft:rgba(79,182,193,.15); --warn:#F0A080;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#14171C; --panel:#1B1F26; --ink:#E7E9ED; --ink-2:#B4BBC6;
+  --muted:#8B94A2; --rule:rgba(231,233,237,.16); --rule-2:rgba(231,233,237,.08);
+  --audio:#E7A33C; --data:#4FB6C1; --audio-soft:rgba(231,163,60,.15);
+  --data-soft:rgba(79,182,193,.15); --warn:#F0A080;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Source Serif 4",Georgia,serif; font-size:1.0625rem; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:53rem; margin:0 auto; padding:clamp(2rem,5vw,4.5rem) clamp(1.1rem,4vw,2rem) 6rem;}
+.col{max-width:36rem}
+h1,h2,h3,.eyebrow,.stat b,th,.pill{font-family:Archivo,"Helvetica Neue",Arial,sans-serif}
+h1{
+  font-size:clamp(2.3rem,6.4vw,3.9rem); font-weight:800; letter-spacing:-.03em;
+  line-height:1.02; margin:.6rem 0 0; text-wrap:balance;
+}
+h2{
+  font-size:clamp(1.35rem,3vw,1.7rem); font-weight:800; letter-spacing:-.018em;
+  line-height:1.15; margin:0 0 .9rem; text-wrap:balance;
+}
+h3{font-size:1.02rem; font-weight:700; letter-spacing:-.01em; margin:0 0 .35rem}
+.eyebrow{
+  font-size:.7rem; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted); margin:0;
+}
+.lede{font-size:clamp(1.1rem,2.3vw,1.28rem); color:var(--ink-2); line-height:1.55; margin:1.4rem 0 0}
+p{margin:0 0 1.05rem}
+a{color:var(--data)}
+strong{font-weight:600; color:var(--ink)}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.86em}
+code{background:var(--rule-2); padding:.12em .38em; border-radius:3px}
+section{margin-top:clamp(3rem,7vw,4.75rem)}
+hr{border:0; border-top:1px solid var(--rule); margin:0}
+.tape{
+  display:flex; gap:.5rem; align-items:center; margin:2.4rem 0 0;
+  font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--muted);
+  letter-spacing:.08em; text-transform:uppercase;
+}
+.tape span{height:1px; background:var(--rule); flex:1}
+figure{margin:1.9rem 0 0}
+.scroll{overflow-x:auto; padding-bottom:.3rem}
+svg{max-width:100%; height:auto; display:block}
+figcaption{
+  font-family:"IBM Plex Mono",monospace; font-size:.76rem; line-height:1.6;
+  color:var(--muted); margin-top:.85rem; max-width:44rem;
+}
+.chan{display:flex; gap:1.15rem; flex-wrap:wrap; margin:.9rem 0 0;
+  font-family:"IBM Plex Mono",monospace; font-size:.72rem; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.09em}
+.chan i{display:inline-block; width:.7rem; height:.7rem; border-radius:2px; margin-right:.4rem;
+  vertical-align:-1px}
+.stages{display:grid; gap:0; margin:1.6rem 0 0; border-top:1px solid var(--rule)}
+.stage{display:grid; grid-template-columns:2.6rem 1fr; gap:1rem;
+  padding:1.05rem 0; border-bottom:1px solid var(--rule-2)}
+.stage>.n{font-family:"IBM Plex Mono",monospace; font-size:.78rem; color:var(--data);
+  padding-top:.18rem; font-variant-numeric:tabular-nums}
+.stage p{margin:.3rem 0 0; color:var(--ink-2); font-size:.98rem}
+table{border-collapse:collapse; width:100%; margin:1.5rem 0 0; font-size:.93rem}
+th,td{text-align:left; padding:.62rem .7rem; border-bottom:1px solid var(--rule-2);
+  vertical-align:top}
+th{font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); border-bottom:1px solid var(--rule)}
+td.num,th.num{text-align:right; font-family:"IBM Plex Mono",monospace;
+  font-variant-numeric:tabular-nums; white-space:nowrap}
+tr>td:first-child{color:var(--ink)}
+.note{
+  border-left:2px solid var(--audio); padding:.15rem 0 .15rem 1.15rem;
+  margin:1.6rem 0 0; color:var(--ink-2);
+}
+.note p:last-child{margin-bottom:0}
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));
+  gap:1px; background:var(--rule-2); border:1px solid var(--rule-2); margin:1.7rem 0 0}
+.stat{background:var(--panel); padding:.9rem 1rem}
+.stat b{display:block; font-size:1.32rem; font-weight:800; letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+.stat span{display:block; font-family:"IBM Plex Mono",monospace; font-size:.68rem;
+  color:var(--muted); text-transform:uppercase; letter-spacing:.09em; margin-top:.2rem}
+ul{margin:0 0 1.05rem; padding-left:1.1rem}
+li{margin-bottom:.5rem}
+li::marker{color:var(--muted)}
+.foot{margin-top:4.5rem; padding-top:1.3rem; border-top:1px solid var(--rule);
+  font-family:"IBM Plex Mono",monospace; font-size:.74rem; color:var(--muted); line-height:1.7}
+@media (prefers-reduced-motion:no-preference){
+  .trace{stroke-dasharray:4000; stroke-dashoffset:4000; animation:draw 1.6s ease-out forwards}
+  .trace.b{animation-delay:.45s}
+}
+@keyframes draw{to{stroke-dashoffset:0}}
+:focus-visible{outline:2px solid var(--data); outline-offset:2px}
+</style>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Teddy Ruxpin &#183; how the mouth is driven</p>
+  <h1>No letters, only loudness</h1>
+  <p class="lede">The bear does not know what it is saying. Nothing in the pipeline
+  detects a letter, a phoneme, or a sound. The jaw is driven by one number &#8212;
+  how loud the audio is right now &#8212; and the surprising part is that this is
+  not a shortcut. The mechanism is too slow to render anything finer.</p>
+</header>
+
+<section>
+  <p class="eyebrow">The thing you are picturing</p>
+  <h2>There is no letter-matching step</h2>
+  <div class="col">
+    <p>It is natural to assume a mouth that moves with speech must be recognising
+    speech: spotting an <em>oo</em> and rounding, spotting an <em>m</em> and
+    closing. Real lip-sync animation does work that way, with a table mapping
+    phonemes to mouth shapes.</p>
+    <p>This does none of that. There is no speech recognition, no phoneme table,
+    no viseme mapping, and no text involved at any point &#8212; the jaw would
+    behave identically if you fed it a cello. The entire input is
+    <strong>a loudness measurement taken 50 times a second</strong>.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">What actually happens</p>
+  <h2>Four steps, no cleverness</h2>
+  <div class="stages">
+    <div class="stage"><div class="n">01</div><div>
+      <h3>Chop the audio into 20 ms frames</h3>
+      <p>Each frame gets one number: its RMS level, converted to decibels. A frame
+      is short enough to catch a syllable, long enough to be stable.</p></div></div>
+    <div class="stage"><div class="n">02</div><div>
+      <h3>Gate the silence</h3>
+      <p>Anything more than 25 dB below the voice's reference level counts as
+      silence and forces the mouth fully shut. This closure between phrases does
+      more visible work than any other single step.</p></div></div>
+    <div class="stage"><div class="n">03</div><div>
+      <h3>Smooth it</h3>
+      <p>A one-pole filter, opening faster than it closes. Mouths snap open and
+      relax shut, and the asymmetry is most of what separates speech from a
+      flapping hinge.</p></div></div>
+    <div class="stage"><div class="n">04</div><div>
+      <h3>Map to a jaw percentage</h3>
+      <p>Scaled into the lower half of the jaw's travel &#8212; commanding the full
+      range asks for motion the motor cannot deliver, and the loop just saturates.
+      The bear closes its own position loop from there, reading a potentiometer on
+      each motor's output shaft.</p></div></div>
+  </div>
+
+  <figure>
+    <div class="scroll"><svg viewBox="0 0 800 330" role="img" aria-label="A speech waveform, the loudness envelope taken from it, and the motor position the bear actually reached, stacked on one time axis over four seconds.">
+  <g transform="translate(20,8)">
+    <text x="0" y="0" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor" opacity=".55" letter-spacing="1">1 — TTS AUDIO, THE WAVEFORM</text>
+    <g transform="translate(0,20)">
+      <line x1="0" y1="30" x2="760" y2="30" stroke="currentColor" stroke-opacity=".18"/>
+      <polyline points="0.0,24.6 4.0,26.6 8.0,26.6 12.1,26.7 16.1,26.5 20.1,26.0 24.1,24.8 28.1,21.5 32.2,22.7 36.2,22.4 40.2,24.6 44.2,21.7 48.3,26.4 52.3,29.5 56.3,29.5 60.3,29.5 64.3,29.5 68.4,29.6 72.4,29.8 76.4,29.7 80.4,29.7 84.4,29.7 88.5,29.8 92.5,29.6 96.5,29.7 100.5,29.8 104.6,29.9 108.6,29.8 112.6,29.9 116.6,29.9 120.6,29.9 124.7,29.8 128.7,18.9 132.7,14.2 136.7,5.3 140.7,3.5 144.8,6.1 148.8,10.9 152.8,13.4 156.8,16.1 160.8,18.2 164.9,17.4 168.9,12.8 172.9,15.0 176.9,16.5 181.0,21.0 185.0,22.9 189.0,25.0 193.0,24.1 197.0,24.5 201.1,25.1 205.1,24.7 209.1,24.8 213.1,15.0 217.1,14.1 221.2,12.9 225.2,15.9 229.2,15.1 233.2,17.5 237.2,14.6 241.3,13.7 245.3,15.8 249.3,20.0 253.3,19.8 257.4,20.3 261.4,21.1 265.4,21.8 269.4,19.4 273.4,19.8 277.5,20.2 281.5,18.7 285.5,19.4 289.5,26.8 293.5,16.2 297.6,15.2 301.6,7.8 305.6,13.3 309.6,15.0 313.7,15.9 317.7,15.7 321.7,15.7 325.7,15.6 329.7,20.1 333.8,26.5 337.8,28.1 341.8,29.2 345.8,27.4 349.8,23.9 353.9,23.6 357.9,23.6 361.9,23.4 365.9,9.6 369.9,10.3 374.0,12.6 378.0,11.6 382.0,11.9 386.0,12.7 390.1,13.5 394.1,14.2 398.1,14.8 402.1,22.1 406.1,21.9 410.2,25.0 414.2,24.9 418.2,25.5 422.2,25.9 426.2,26.8 430.3,27.2 434.3,29.1 438.3,29.6 442.3,29.6 446.3,29.7 450.4,29.6 454.4,29.6 458.4,29.7 462.4,29.7 466.5,29.7 470.5,29.6 474.5,29.8 478.5,29.8 482.5,29.8 486.6,29.8 490.6,29.9 494.6,29.9 498.6,29.9 502.6,29.8 506.7,24.0 510.7,23.2 514.7,18.3 518.7,15.0 522.8,11.0 526.8,12.5 530.8,15.1 534.8,13.2 538.8,10.1 542.9,9.3 546.9,17.5 550.9,20.0 554.9,20.2 558.9,20.5 563.0,19.7 567.0,27.3 571.0,26.3 575.0,26.6 579.0,29.3 583.1,29.5 587.1,29.3 591.1,18.4 595.1,13.9 599.2,14.7 603.2,11.5 607.2,12.3 611.2,11.8 615.2,4.4 619.3,10.7 623.3,15.1 627.3,22.0 631.3,20.9 635.3,22.1 639.4,20.8 643.4,19.5 647.4,29.1 651.4,29.1 655.4,25.3 659.5,25.3 663.5,19.0 667.5,18.7 671.5,19.6 675.6,20.9 679.6,22.3 683.6,23.3 687.6,24.7 691.6,24.6 695.7,25.4 699.7,26.0 703.7,26.4 707.7,27.3 711.7,27.9 715.8,29.2 719.8,29.6 723.8,29.5 727.8,29.7 731.9,29.8 735.9,29.7 739.9,29.8 743.9,29.8 747.9,29.8 752.0,29.7 756.0,29.7 760.0,28.6" fill="none" stroke="var(--audio)" stroke-width="1"/>
+      <polyline points="0.0,39.6 4.0,34.4 8.0,34.9 12.1,35.9 16.1,36.7 20.1,36.8 24.1,36.7 28.1,36.4 32.2,38.1 36.2,37.1 40.2,35.9 44.2,38.5 48.3,33.7 52.3,30.6 56.3,30.3 60.3,30.5 64.3,30.4 68.4,30.3 72.4,30.3 76.4,30.3 80.4,30.3 84.4,30.2 88.5,30.3 92.5,30.3 96.5,30.3 100.5,30.3 104.6,30.2 108.6,30.2 112.6,30.1 116.6,30.1 120.6,30.1 124.7,30.2 128.7,44.6 132.7,52.5 136.7,56.9 140.7,58.0 144.8,57.6 148.8,54.2 152.8,44.2 156.8,37.1 160.8,37.5 164.9,40.8 168.9,43.5 172.9,48.5 176.9,46.0 181.0,46.3 185.0,43.6 189.0,39.9 193.0,37.1 197.0,35.5 201.1,35.3 205.1,36.8 209.1,41.1 213.1,53.7 217.1,53.9 221.2,53.8 225.2,46.3 229.2,47.0 233.2,42.3 237.2,42.5 241.3,43.7 245.3,42.0 249.3,40.5 253.3,40.2 257.4,40.7 261.4,39.5 265.4,38.5 269.4,39.1 273.4,39.2 277.5,39.9 281.5,43.7 285.5,39.7 289.5,33.4 293.5,41.9 297.6,41.9 301.6,53.9 305.6,51.4 309.6,49.7 313.7,47.1 317.7,46.0 321.7,43.9 325.7,40.3 329.7,37.5 333.8,32.2 337.8,31.9 341.8,31.2 345.8,35.3 349.8,37.8 353.9,38.4 357.9,38.4 361.9,40.4 365.9,51.5 369.9,50.0 374.0,45.0 378.0,43.6 382.0,41.8 386.0,41.9 390.1,42.4 394.1,41.2 398.1,45.1 402.1,46.7 406.1,42.3 410.2,41.8 414.2,41.0 418.2,37.4 422.2,35.8 426.2,34.0 430.3,32.9 434.3,30.9 438.3,30.4 442.3,30.4 446.3,30.5 450.4,30.4 454.4,30.3 458.4,30.3 462.4,30.3 466.5,30.3 470.5,30.4 474.5,30.2 478.5,30.2 482.5,30.2 486.6,30.3 490.6,30.1 494.6,30.1 498.6,30.1 502.6,30.2 506.7,35.3 510.7,37.1 514.7,46.4 518.7,46.6 522.8,52.5 526.8,50.3 530.8,49.0 534.8,47.6 538.8,48.5 542.9,45.3 546.9,37.6 550.9,40.2 554.9,41.7 558.9,40.8 563.0,39.3 567.0,31.7 571.0,33.3 575.0,33.7 579.0,30.6 583.1,30.5 587.1,31.6 591.1,53.1 595.1,57.2 599.2,51.3 603.2,46.5 607.2,43.2 611.2,48.3 615.2,55.7 619.3,51.5 623.3,44.9 627.3,39.7 631.3,40.3 635.3,37.5 639.4,40.2 643.4,41.3 647.4,31.1 651.4,30.8 655.4,40.0 659.5,37.5 663.5,42.5 667.5,43.6 671.5,46.0 675.6,47.3 679.6,44.9 683.6,42.9 687.6,37.5 691.6,36.2 695.7,35.7 699.7,33.8 703.7,33.6 707.7,33.5 711.7,31.9 715.8,30.5 719.8,30.4 723.8,30.5 727.8,30.3 731.9,30.2 735.9,30.2 739.9,30.2 743.9,30.2 747.9,30.3 752.0,30.3 756.0,30.3 760.0,31.4" fill="none" stroke="var(--audio)" stroke-width="1"/>
+    </g>
+    <text x="0" y="106" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor" opacity=".55" letter-spacing="1">2 — LOUDNESS PER 20 ms FRAME, GATED AND SMOOTHED</text>
+    <g transform="translate(0,118)">
+      <rect x="0" y="0" width="760" height="96" fill="var(--audio-soft)" opacity=".45"/>
+      <line x1="0" y1="96" x2="760" y2="96" stroke="currentColor" stroke-opacity=".18"/>
+      <polyline points="0.0,32.2 3.8,43.3 7.6,42.3 11.5,37.0 15.3,34.3 19.1,31.6 22.9,30.0 26.7,27.8 30.6,33.9 34.4,44.2 38.2,51.8 42.0,45.9 45.8,45.4 49.6,94.6 53.5,96.0 57.3,96.0 61.1,96.0 64.9,96.0 68.7,96.0 72.6,96.0 76.4,96.0 80.2,96.0 84.0,96.0 87.8,96.0 91.7,96.0 95.5,96.0 99.3,96.0 103.1,96.0 106.9,96.0 110.8,96.0 114.6,96.0 118.4,96.0 122.2,96.0 126.0,96.0 129.8,32.4 133.7,6.5 137.5,0.0 141.3,0.0 145.1,0.0 148.9,1.9 152.8,11.4 156.6,16.7 160.4,15.3 164.2,11.7 168.0,9.3 171.9,5.4 175.7,9.6 179.5,12.7 183.3,19.1 187.1,30.0 191.0,30.4 194.8,34.4 198.6,42.1 202.4,40.5 206.2,30.9 210.1,24.1 213.9,1.2 217.7,0.0 221.5,0.0 225.3,7.7 229.1,6.1 233.0,10.7 236.8,12.6 240.6,9.0 244.4,10.8 248.2,16.9 252.1,16.4 255.9,14.4 259.7,15.5 263.5,28.8 267.3,41.9 271.2,33.6 275.0,33.3 278.8,31.2 282.6,27.4 286.4,43.8 290.3,43.6 294.1,6.3 297.9,3.9 301.7,0.4 305.5,0.0 309.3,5.4 313.2,10.3 317.0,9.0 320.8,10.6 324.6,11.9 328.4,22.5 332.3,50.2 336.1,75.1 339.9,96.0 343.7,80.8 347.5,32.2 351.4,21.6 355.2,18.2 359.0,17.3 362.8,15.6 366.6,0.0 370.5,0.0 374.3,3.8 378.1,3.8 381.9,6.0 385.7,9.0 389.5,8.0 393.4,10.6 397.2,7.5 401.0,12.0 404.8,16.5 408.6,26.8 412.5,28.4 416.3,35.6 420.1,39.0 423.9,44.7 427.7,52.5 431.6,70.7 435.4,96.0 439.2,96.0 443.0,96.0 446.8,96.0 450.7,96.0 454.5,96.0 458.3,96.0 462.1,96.0 465.9,96.0 469.7,96.0 473.6,96.0 477.4,96.0 481.2,96.0 485.0,96.0 488.8,96.0 492.7,96.0 496.5,96.0 500.3,96.0 504.1,69.1 507.9,29.0 511.8,35.4 515.6,23.8 519.4,18.5 523.2,1.0 527.0,1.1 530.9,5.2 534.7,6.8 538.5,1.2 542.3,6.6 546.1,26.7 549.9,31.8 553.8,36.1 557.6,33.9 561.4,37.1 565.2,72.6 569.0,96.0 572.9,67.3 576.7,96.0 580.5,96.0 584.3,96.0 588.1,60.0 592.0,19.2 595.8,5.8 599.6,7.1 603.4,6.2 607.2,8.4 611.1,4.4 614.9,0.0 618.7,0.0 622.5,11.9 626.3,34.3 630.2,32.9 634.0,36.8 637.8,33.6 641.6,28.9 645.4,71.1 649.2,96.0 653.1,72.3 656.9,91.9 660.7,20.6 664.5,1.5 668.3,3.6 672.2,2.1 676.0,8.7 679.8,14.1 683.6,19.0 687.4,30.1 691.3,34.6 695.1,38.6 698.9,45.7 702.7,46.9 706.5,50.9 710.4,64.2 714.2,96.0 718.0,96.0 721.8,96.0 725.6,96.0 729.4,96.0 733.3,96.0 737.1,96.0 740.9,96.0 744.7,96.0 748.5,96.0 752.4,96.0 756.2,96.0 760.0,96.0" fill="none" stroke="var(--audio)" stroke-width="1" stroke-opacity=".38"/>
+      <polyline class="trace" points="0.0,25.1 3.8,33.6 7.6,37.7 11.5,37.0 15.3,34.3 19.1,31.6 22.9,30.0 26.7,27.8 30.6,30.7 34.4,37.0 38.2,43.9 42.0,44.8 45.8,45.1 49.6,68.2 53.5,81.1 57.3,88.1 61.1,91.8 64.9,93.7 68.7,94.8 72.6,95.4 76.4,95.7 80.2,95.8 84.0,95.9 87.8,96.0 91.7,96.0 95.5,96.0 99.3,96.0 103.1,96.0 106.9,96.0 110.8,96.0 114.6,96.0 118.4,96.0 122.2,96.0 126.0,96.0 129.8,32.4 133.7,6.5 137.5,0.0 141.3,0.0 145.1,0.0 148.9,0.9 152.8,5.8 156.6,10.9 160.4,13.0 164.2,11.7 168.0,9.3 171.9,5.4 175.7,7.3 179.5,9.8 183.3,14.2 187.1,21.6 191.0,25.7 194.8,29.7 198.6,35.5 202.4,37.8 206.2,30.9 210.1,24.1 213.9,1.2 217.7,0.0 221.5,0.0 225.3,3.6 229.1,4.8 233.0,7.5 236.8,9.9 240.6,9.0 244.4,9.8 248.2,13.1 252.1,14.7 255.9,14.4 259.7,14.9 263.5,21.4 267.3,31.0 271.2,32.2 275.0,32.7 278.8,31.2 282.6,27.4 286.4,35.0 290.3,39.0 294.1,6.3 297.9,3.9 301.7,0.4 305.5,0.0 309.3,2.5 313.2,6.2 317.0,7.5 320.8,8.9 324.6,10.3 328.4,16.0 332.3,31.9 336.1,52.1 339.9,72.6 343.7,76.4 347.5,32.2 351.4,21.6 355.2,18.2 359.0,17.3 362.8,15.6 366.6,0.0 370.5,0.0 374.3,1.8 378.1,2.7 381.9,4.3 385.7,6.5 389.5,7.2 393.4,8.8 397.2,7.5 401.0,9.6 404.8,12.8 408.6,19.3 412.5,23.6 416.3,29.2 420.1,33.8 423.9,38.9 427.7,45.2 431.6,57.1 435.4,75.3 439.2,84.9 443.0,90.1 446.8,92.9 450.7,94.3 454.5,95.1 458.3,95.5 462.1,95.7 465.9,95.9 469.7,95.9 473.6,96.0 477.4,96.0 481.2,96.0 485.0,96.0 488.8,96.0 492.7,96.0 496.5,96.0 500.3,96.0 504.1,69.1 507.9,29.0 511.8,31.9 515.6,23.8 519.4,18.5 523.2,1.0 527.0,1.1 530.9,3.0 534.7,4.8 538.5,1.2 542.3,3.7 546.1,14.4 549.9,22.6 553.8,28.9 557.6,31.2 561.4,33.9 565.2,52.0 569.0,72.5 572.9,67.3 576.7,80.7 580.5,87.8 584.3,91.6 588.1,60.0 592.0,19.2 595.8,5.8 599.6,6.4 603.4,6.2 607.2,7.2 611.1,4.4 614.9,0.0 618.7,0.0 622.5,5.6 626.3,19.0 630.2,25.4 634.0,30.7 637.8,32.0 641.6,28.9 645.4,48.6 649.2,70.7 653.1,71.5 656.9,81.0 660.7,20.6 664.5,1.5 668.3,2.4 672.2,2.1 676.0,5.2 679.8,9.4 683.6,13.9 687.4,21.4 691.3,27.6 695.1,32.7 698.9,38.8 702.7,42.6 706.5,46.5 710.4,54.8 714.2,74.0 718.0,84.3 721.8,89.7 725.6,92.7 729.4,94.2 733.3,95.0 737.1,95.5 740.9,95.7 744.7,95.9 748.5,95.9 752.4,96.0 756.2,96.0 760.0,96.0" fill="none" stroke="var(--audio)" stroke-width="2"/>
+    </g>
+    <text x="0" y="240" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor" opacity=".55" letter-spacing="1">3 — WHERE THE JAW ACTUALLY WENT, READ OFF ITS POT</text>
+    <g transform="translate(0,252)">
+      <line x1="0" y1="60" x2="760" y2="60" stroke="currentColor" stroke-opacity=".18"/>
+      <polyline points="0.0,25.1 3.8,33.6 7.6,37.7 11.5,37.0 15.3,34.3 19.1,31.6 22.9,30.0 26.7,27.8 30.6,30.7 34.4,37.0 38.2,43.9 42.0,44.8 45.8,45.1 49.6,68.2 53.5,81.1 57.3,88.1 61.1,91.8 64.9,93.7 68.7,94.8 72.6,95.4 76.4,95.7 80.2,95.8 84.0,95.9 87.8,96.0 91.7,96.0 95.5,96.0 99.3,96.0 103.1,96.0 106.9,96.0 110.8,96.0 114.6,96.0 118.4,96.0 122.2,96.0 126.0,96.0 129.8,32.4 133.7,6.5 137.5,0.0 141.3,0.0 145.1,0.0 148.9,0.9 152.8,5.8 156.6,10.9 160.4,13.0 164.2,11.7 168.0,9.3 171.9,5.4 175.7,7.3 179.5,9.8 183.3,14.2 187.1,21.6 191.0,25.7 194.8,29.7 198.6,35.5 202.4,37.8 206.2,30.9 210.1,24.1 213.9,1.2 217.7,0.0 221.5,0.0 225.3,3.6 229.1,4.8 233.0,7.5 236.8,9.9 240.6,9.0 244.4,9.8 248.2,13.1 252.1,14.7 255.9,14.4 259.7,14.9 263.5,21.4 267.3,31.0 271.2,32.2 275.0,32.7 278.8,31.2 282.6,27.4 286.4,35.0 290.3,39.0 294.1,6.3 297.9,3.9 301.7,0.4 305.5,0.0 309.3,2.5 313.2,6.2 317.0,7.5 320.8,8.9 324.6,10.3 328.4,16.0 332.3,31.9 336.1,52.1 339.9,72.6 343.7,76.4 347.5,32.2 351.4,21.6 355.2,18.2 359.0,17.3 362.8,15.6 366.6,0.0 370.5,0.0 374.3,1.8 378.1,2.7 381.9,4.3 385.7,6.5 389.5,7.2 393.4,8.8 397.2,7.5 401.0,9.6 404.8,12.8 408.6,19.3 412.5,23.6 416.3,29.2 420.1,33.8 423.9,38.9 427.7,45.2 431.6,57.1 435.4,75.3 439.2,84.9 443.0,90.1 446.8,92.9 450.7,94.3 454.5,95.1 458.3,95.5 462.1,95.7 465.9,95.9 469.7,95.9 473.6,96.0 477.4,96.0 481.2,96.0 485.0,96.0 488.8,96.0 492.7,96.0 496.5,96.0 500.3,96.0 504.1,69.1 507.9,29.0 511.8,31.9 515.6,23.8 519.4,18.5 523.2,1.0 527.0,1.1 530.9,3.0 534.7,4.8 538.5,1.2 542.3,3.7 546.1,14.4 549.9,22.6 553.8,28.9 557.6,31.2 561.4,33.9 565.2,52.0 569.0,72.5 572.9,67.3 576.7,80.7 580.5,87.8 584.3,91.6 588.1,60.0 592.0,19.2 595.8,5.8 599.6,6.4 603.4,6.2 607.2,7.2 611.1,4.4 614.9,0.0 618.7,0.0 622.5,5.6 626.3,19.0 630.2,25.4 634.0,30.7 637.8,32.0 641.6,28.9 645.4,48.6 649.2,70.7 653.1,71.5 656.9,81.0 660.7,20.6 664.5,1.5 668.3,2.4 672.2,2.1 676.0,5.2 679.8,9.4 683.6,13.9 687.4,21.4 691.3,27.6 695.1,32.7 698.9,38.8 702.7,42.6 706.5,46.5 710.4,54.8 714.2,74.0 718.0,84.3 721.8,89.7 725.6,92.7 729.4,94.2 733.3,95.0 737.1,95.5 740.9,95.7 744.7,95.9 748.5,95.9 752.4,96.0 756.2,96.0 760.0,96.0" fill="none" stroke="var(--audio)" stroke-width="1" stroke-opacity=".3" transform="scale(1,0.625)"/>
+      <polyline class="trace b" points="0.0,24.0 3.8,21.4 7.6,21.0 11.5,21.4 15.3,22.0 19.1,24.7 22.9,29.2 26.7,31.8 30.6,32.3 34.4,32.4 38.2,32.4 42.0,33.9 45.8,36.5 49.6,39.4 53.5,43.8 57.3,49.8 61.1,55.2 64.9,61.3 68.7,68.1 72.6,72.8 76.4,77.9 80.2,83.1 84.0,87.6 87.8,91.1 91.7,94.0 95.5,94.8 99.3,94.3 103.1,94.3 106.9,94.2 110.8,94.3 114.6,94.2 118.4,94.3 122.2,94.3 126.0,94.3 129.8,94.3 133.7,94.3 137.5,93.5 141.3,89.7 145.1,86.2 148.9,80.9 152.8,74.9 156.6,69.1 160.4,62.7 164.2,55.4 168.0,48.8 171.9,42.6 175.7,35.8 179.5,29.8 183.3,23.2 187.1,17.1 191.0,13.9 194.8,14.1 198.6,14.7 202.4,16.2 206.2,19.7 210.1,24.4 213.9,28.6 217.7,29.7 221.5,29.5 225.3,27.6 229.1,22.5 233.0,16.6 236.8,11.6 240.6,8.7 244.4,7.2 248.2,7.6 252.1,8.2 255.9,8.5 259.7,10.3 263.5,12.0 267.3,14.6 271.2,18.0 275.0,22.0 278.8,26.4 282.6,31.1 286.4,33.3 290.3,33.5 294.1,34.1 297.9,34.2 301.7,34.2 305.5,31.3 309.3,25.6 313.2,19.8 317.0,13.8 320.8,8.9 324.6,6.8 328.4,5.9 332.3,6.9 336.1,7.3 339.9,10.2 343.7,14.7 347.5,19.9 351.4,25.1 355.2,29.2 359.0,29.4 362.8,29.4 366.6,29.5 370.5,26.5 374.3,21.6 378.1,16.0 381.9,10.5 385.7,6.8 389.5,4.0 393.4,3.4 397.2,4.5 401.0,4.8 404.8,6.0 408.6,7.5 412.5,9.7 416.3,13.2 420.1,17.3 423.9,21.7 427.7,26.6 431.6,32.5 435.4,37.3 439.2,43.4 443.0,50.4 446.8,56.4 450.7,63.5 454.5,69.9 458.3,74.5 462.1,80.6 465.9,86.0 469.7,89.1 473.6,93.8 477.4,95.9 481.2,95.9 485.0,95.8 488.8,95.0 492.7,94.3 496.5,94.1 500.3,94.0 504.1,94.0 507.9,92.8 511.8,88.8 515.6,85.8 519.4,81.1 523.2,75.4 527.0,70.1 530.9,63.7 534.7,56.6 538.5,50.2 542.3,44.0 546.1,37.0 549.9,30.6 553.8,24.7 557.6,21.5 561.4,21.6 565.2,21.9 569.0,22.5 572.9,25.4 576.7,31.2 580.5,36.5 584.3,41.9 588.1,48.2 592.0,54.2 595.8,56.2 599.6,56.2 603.4,56.3 607.2,52.3 611.1,47.3 614.9,41.9 618.7,35.9 622.5,30.7 626.3,24.5 630.2,19.3 634.0,16.8 637.8,17.4 641.6,18.1 645.4,18.8 649.2,20.9 653.1,24.6 656.9,30.5 660.7,35.5 664.5,38.5 668.3,38.5 672.2,38.6 676.0,36.2 679.8,31.5 683.6,25.8 687.4,20.3 691.3,16.7 695.1,15.8 698.9,16.7 702.7,17.1 706.5,20.0 710.4,24.5 714.2,30.5 718.0,36.0 721.8,41.2 725.6,48.3 729.4,55.0 733.3,61.6 737.1,68.7 740.9,74.3 744.7,79.5 748.5,84.8 752.4,88.8 756.2,93.4 760.0,95.8" fill="none" stroke="var(--data)" stroke-width="2" transform="scale(1,0.625)"/>
+    </g>
+    <text x="0" y="322" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity=".45">0 s</text>
+    <text x="760" y="322" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity=".45">4 s</text>
+  </g>
+</svg></div>
+    <div class="chan">
+      <span><i style="background:var(--audio)"></i>audio, and the envelope from it</span>
+      <span><i style="background:var(--data)"></i>where the jaw actually went</span>
+    </div>
+    <figcaption>Four real seconds, measured on the bear. The bottom trace is the
+    jaw's own potentiometer, not a simulation. It is a lagged, rounded-off copy of
+    the loudness above it &#8212; and no stage in between ever knew a word was
+    being spoken. The faint line in the middle lane is the raw per-frame loudness
+    before smoothing.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <p class="eyebrow">Why that is enough</p>
+  <h2>The mechanism is a 2 Hz filter</h2>
+  <div class="col">
+    <p>Drive the jaw with a sine wave and sweep the rate, and it behaves like a
+    textbook low-pass filter. At 1 Hz it reaches everything it was asked for. By
+    5 Hz it manages a seventh of it.</p>
+  </div>
+  <figure>
+    <div class="scroll"><svg viewBox="0 0 780 268" role="img" aria-label="Measured jaw excursion falls from 105 percent at 1 hertz to 14 percent at 5 hertz, with syllables landing in the falling region and phonemes far beyond it.">
+  <g>
+    <rect x="70.0" y="30" width="330.0" height="170" fill="var(--data-soft)"/>
+    <text x="215.2" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".7" letter-spacing=".5">PROSODY, PHRASING</text>
+    <rect x="400.0" y="30" width="330.0" height="170" fill="var(--audio-soft)"/>
+    <text x="558.4" y="46" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".7" letter-spacing=".5">SYLLABLES</text>
+    <line x1="70.0" y1="200" x2="730.0" y2="200" stroke="currentColor" stroke-opacity=".3"/>
+    <line x1="70.0" y1="96.5" x2="730.0" y2="96.5" stroke="currentColor" stroke-opacity=".22" stroke-dasharray="3 3"/>
+    <text x="62.0" y="100.0" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".6">70%</text>
+    <text x="62.0" y="48.3" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".6">100%</text>
+    <polyline points="136.0,44.8 268.0,96.5 400.0,137.9 532.0,164.5 664.0,179.3" fill="none" stroke="var(--data)" stroke-width="2.2"/>
+    <circle cx="136.0" cy="44.8" r="3.6" fill="var(--data)"/><text x="136.0" y="33.8" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor">105%</text><circle cx="268.0" cy="96.5" r="3.6" fill="var(--data)"/><text x="268.0" y="85.5" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor">70%</text><circle cx="400.0" cy="137.9" r="3.6" fill="var(--data)"/><text x="400.0" y="126.9" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor">42%</text><circle cx="532.0" cy="164.5" r="3.6" fill="var(--data)"/><text x="532.0" y="153.5" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor">24%</text><circle cx="664.0" cy="179.3" r="3.6" fill="var(--data)"/><text x="664.0" y="168.3" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor">14%</text><text x="136.0" y="219" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">1 Hz</text><text x="268.0" y="219" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">2 Hz</text><text x="400.0" y="219" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">3 Hz</text><text x="532.0" y="219" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">4 Hz</text><text x="664.0" y="219" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">5 Hz</text>
+    <text x="268.0" y="243" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--data)">&#8593; &#8722;3 dB corner</text>
+    <text x="716.8" y="201.3" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".65">phonemes sit at 10&#8211;15 Hz, off this chart</text>
+  </g>
+</svg></div>
+    <figcaption>Commanded 1253 counts of travel; measured what the jaw achieved at
+    each rate. The &#8722;3 dB point lands at 2 Hz, and excursion falls as roughly
+    1/f above it.</figcaption>
+  </figure>
+  <table>
+    <thead><tr><th>Speech structure</th><th class="num">Rate</th><th class="num">Rendered</th></tr></thead>
+    <tbody>
+      <tr><td>Phrasing and prosody</td><td class="num">1&#8211;3 Hz</td><td class="num">42&#8211;105%</td></tr>
+      <tr><td>Syllables</td><td class="num">3&#8211;8 Hz</td><td class="num">14&#8211;42%</td></tr>
+      <tr><td>Phonemes &#8212; individual sounds</td><td class="num">10&#8211;15 Hz</td><td class="num">~5%</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <p>This is the whole argument. <strong>A perfect phoneme-accurate animation
+    would be filtered away to about 5% of its intended motion.</strong> The gearmotor
+    physically cannot move that fast, so the effort would buy almost no visible
+    difference. Loudness is not an approximation of the right answer here &#8212; at
+    the rates this mechanism can actually render, it is most of the way to it.</p>
+  </div>
+  <div class="col">
+    <p style="margin-top:1.6rem">The cases where loudness genuinely misleads are
+    real but fast. An <em>m</em> is voiced and loud with the mouth shut; an
+    <em>s</em> is quiet with the mouth open. Both are phoneme-rate events, and both
+    get smoothed into their neighbours before the jaw could have shown them.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">The 1985 cassette</p>
+  <h2>The tape did the opposite</h2>
+  <div class="col">
+    <p>The original tapes are stereo, and the two channels have nothing to do with
+    each other &#8212; measured correlation between them is 0.02. The left channel is
+    the story. The right channel is a digital control track: a framed pulse signal
+    repeating at 58 Hz, carrying six discrete data fields per frame.</p>
+  </div>
+  <figure>
+    <div class="scroll"><svg viewBox="0 0 780 150" role="img" aria-label="One 17.2 millisecond cassette control frame: a sync burst, then seven narrow markers alternating with six variable-width data fields, then a 4.1 millisecond gap.">
+  <g>
+    <rect x="40.0" y="34" width="65.1" height="44" fill="var(--data)"/><text x="72.6" y="26" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor">sync</text><rect x="105.1" y="46" width="16.3" height="20" fill="currentColor" fill-opacity=".55"/><rect x="121.4" y="40" width="42.7" height="32" fill="var(--audio)" fill-opacity=".85"/><rect x="164.1" y="46" width="16.3" height="20" fill="currentColor" fill-opacity=".55"/><rect x="180.4" y="40" width="42.7" height="32" fill="var(--audio)" fill-opacity=".85"/><rect x="223.1" y="46" width="16.3" height="20" fill="currentColor" fill-opacity=".55"/><rect x="239.4" y="40" width="42.7" height="32" fill="var(--audio)" fill-opacity=".85"/><rect x="282.2" y="46" width="16.3" height="20" fill="currentColor" fill-opacity=".55"/><rect x="298.4" y="40" width="42.7" height="32" fill="var(--audio)" fill-opacity=".85"/><rect x="341.2" y="46" width="16.3" height="20" fill="currentColor" fill-opacity=".55"/><rect x="357.4" y="40" width="42.7" height="32" fill="var(--audio)" fill-opacity=".85"/><rect x="400.2" y="46" width="16.3" height="20" fill="currentColor" fill-opacity=".55"/><rect x="416.5" y="40" width="42.7" height="32" fill="var(--audio)" fill-opacity=".85"/><rect x="459.2" y="46" width="16.3" height="20" fill="currentColor" fill-opacity=".55"/><rect x="475.5" y="54" width="167.7" height="4" fill="currentColor" fill-opacity=".28"/><text x="559.3" y="26" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor">4.1 ms gap</text>
+    <text x="181.4" y="98" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--audio)">six variable data fields, each between two fixed markers</text>
+    <line x1="40" y1="112" x2="643.1" y2="112" stroke="currentColor" stroke-opacity=".35"/>
+    <line x1="40" y1="108" x2="40" y2="116" stroke="currentColor" stroke-opacity=".35"/>
+    <line x1="643.1" y1="108" x2="643.1" y2="116" stroke="currentColor" stroke-opacity=".35"/>
+    <text x="341.6" y="130" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor" opacity=".75">one frame &#8212; 17.2 ms, repeating at 58 Hz</text>
+  </g>
+</svg></div>
+    <figcaption>One frame of the control track, drawn to measured proportions. A
+    sync burst, then seven fixed ~0.4 ms markers alternating with six variable
+    data fields, then a 4.1 ms gap. 76% of frames have exactly this shape.</figcaption>
+  </figure>
+  <div class="col">
+    <p>Here is the part that answers your question. That track is
+    <strong>not an envelope</strong>. Nothing in it correlates with how loud the
+    voice is &#8212; across a whole 14-minute story, no field reaches even a weak
+    correlation with the audio in any 10-second window. Its values are discrete,
+    not continuous: one field resolves into three cleanly separated levels with
+    literally nothing in the gaps between them.</p>
+    <p>So the tape was not deriving motion from sound. It was replaying
+    <strong>motion somebody authored</strong>, stored alongside the sound and
+    synchronised to it only because they sat on the same piece of tape.</p>
+  </div>
+  <figure>
+    <div class="scroll"><svg viewBox="0 0 780 250" role="img" aria-label="On the cassette, animation was authored by a person and stored on the tape's right channel. In the bear, no animation is stored at all; it is derived from the audio's loudness at playback time.">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+    </marker>
+    <marker id="ard" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--data)"/>
+    </marker>
+  </defs>
+  <g font-family="IBM Plex Mono, monospace" font-size="11">
+    <text x="0" y="12" fill="currentColor" opacity=".55" letter-spacing="1">1985 &#8212; STORED</text>
+    <rect x="0" y="24" width="132" height="42" fill="none" stroke="currentColor" stroke-opacity=".4"/>
+    <text x="66" y="49" text-anchor="middle" fill="currentColor">animator</text>
+    <line x1="132" y1="45" x2="196" y2="45" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="164" y="37" text-anchor="middle" fill="currentColor" opacity=".7" font-size="10">authors</text>
+    <rect x="198" y="24" width="150" height="42" fill="var(--data-soft)" stroke="var(--data)"/>
+    <text x="273" y="43" text-anchor="middle" fill="var(--data)">right channel</text>
+    <text x="273" y="57" text-anchor="middle" fill="var(--data)" font-size="9.5">6 fields @ 58 Hz</text>
+    <line x1="348" y1="45" x2="412" y2="45" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="414" y="24" width="120" height="42" fill="none" stroke="currentColor" stroke-opacity=".4"/>
+    <text x="474" y="49" text-anchor="middle" fill="currentColor">motors</text>
+    <rect x="198" y="86" width="150" height="34" fill="var(--audio-soft)" stroke="var(--audio)" stroke-opacity=".7"/>
+    <text x="273" y="107" text-anchor="middle" fill="var(--audio)">left channel &#8212; voice</text>
+    <text x="360" y="107" fill="currentColor" opacity=".6" font-size="10">plays; never consulted for motion</text>
+
+    <line x1="0" y1="150" x2="780" y2="150" stroke="currentColor" stroke-opacity=".14"/>
+
+    <text x="0" y="176" fill="currentColor" opacity=".55" letter-spacing="1">NOW &#8212; DERIVED</text>
+    <rect x="0" y="188" width="132" height="42" fill="var(--audio-soft)" stroke="var(--audio)" stroke-opacity=".7"/>
+    <text x="66" y="213" text-anchor="middle" fill="var(--audio)">TTS audio</text>
+    <line x1="132" y1="209" x2="196" y2="209" stroke="var(--data)" marker-end="url(#ard)"/>
+    <text x="164" y="201" text-anchor="middle" fill="var(--data)" font-size="10">loudness</text>
+    <rect x="198" y="188" width="150" height="42" fill="var(--data-soft)" stroke="var(--data)"/>
+    <text x="273" y="207" text-anchor="middle" fill="var(--data)">envelope</text>
+    <text x="273" y="221" text-anchor="middle" fill="var(--data)" font-size="9.5">one number, 50 Hz</text>
+    <line x1="348" y1="209" x2="412" y2="209" stroke="currentColor" marker-end="url(#ar)"/>
+    <rect x="414" y="188" width="120" height="42" fill="none" stroke="currentColor" stroke-opacity=".4"/>
+    <text x="474" y="213" text-anchor="middle" fill="currentColor">motors</text>
+    <text x="552" y="207" fill="currentColor" opacity=".6" font-size="10">nothing is stored;</text>
+    <text x="552" y="221" fill="currentColor" opacity=".6" font-size="10">it is computed as it plays</text>
+  </g>
+</svg></div>
+    <figcaption>The real difference is not the mechanism or the frame rate &#8212;
+    both run near 50&#8211;58 Hz into the same three motors. It is where the
+    animation comes from. In 1985 it was authored once and stored. Now it does not
+    exist until the moment the audio plays.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <p class="eyebrow">Side by side</p>
+  <h2>Two ways to move the same three motors</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th></th><th>1985 cassette</th><th>This build</th></tr></thead>
+    <tbody>
+      <tr><td>Source of motion</td><td>Authored by hand</td><td>Computed from loudness</td></tr>
+      <tr><td>Stored on disk</td><td>The animation itself</td><td>Nothing</td></tr>
+      <tr><td>Frame rate</td><td class="num">58 Hz</td><td class="num">50 Hz</td></tr>
+      <tr><td>Channels per frame</td><td class="num">6, discrete</td><td class="num">3, continuous</td></tr>
+      <tr><td>Position feedback</td><td>None &#8212; open loop</td><td>Pot on every shaft</td></tr>
+      <tr><td>Knows the words</td><td>The animator did</td><td>Never</td></tr>
+      <tr><td>New material</td><td>Author and press a tape</td><td>Say anything, instantly</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="note">
+    <p>The trade is honest. Hand-authored animation can do things loudness cannot
+    &#8212; hold a shape through a pause, close on an <em>m</em>, act. What it cannot
+    do is respond to a sentence nobody wrote in advance, which is the entire point
+    of this build.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Two motors, not one</p>
+  <h2>The upper jaw moves less</h2>
+  <div class="col">
+    <p>The mouth has two motors, upper and lower, and the original drove them
+    separately. That detail matters more than it sounds: a mouth whose halves move
+    as one reads as a hinge opening, not as a face speaking. So the upper jaw gets
+    the same envelope scaled down, and each half closes its own position loop
+    against its own potentiometer.</p>
+    <p>The scaling is not linear, because at speech rates both halves are
+    slew-limited &#8212; a smaller command does not produce a proportionally smaller
+    movement. Commanding 40% yields about 65% visually, so the rule of thumb is to
+    command roughly half the split you want to see.</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>4.93</b><span>upper counts/ms</span></div>
+    <div class="stat"><b>4.76</b><span>lower counts/ms</span></div>
+    <div class="stat"><b>~65 ms</b><span>dead time</span></div>
+    <div class="stat"><b>120&#8211;140 ms</b><span>total lag</span></div>
+  </div>
+  <div class="col">
+    <p style="margin-top:1.6rem">That last figure is why the jaw is commanded
+    <em>ahead</em> of the sound. Between the motor's dead time and the loop's
+    settling, the mouth arrives about an eighth of a second after it is told to
+    move, so the envelope is sent early by exactly that much.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">The eyes</p>
+  <h2>Driven by rhythm, not level</h2>
+  <div class="col">
+    <p>The eyes deliberately ignore loudness. Amplitude-driven eyes look wrong &#8212;
+    they read as a meter, not a face. Instead blinks are placed on phrase
+    structure: in the gaps where the mouth is already shut, topped up to a natural
+    idle rate when the speech does not supply enough pauses.</p>
+    <p>Because a blink ramp is slow &#8212; about 340 ms each way &#8212; it sits
+    comfortably inside the mechanism's bandwidth, and the difference shows:</p>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Channel</th><th class="num">Command vs achieved</th><th class="num">Lag</th></tr></thead>
+    <tbody>
+      <tr><td>Jaw</td><td class="num">0.878</td><td class="num">140 ms</td></tr>
+      <tr><td>Eyes</td><td class="num">0.997</td><td class="num">60 ms</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="col">
+    <p style="margin-top:1.4rem">The eyes track almost perfectly. That is not a
+    better algorithm &#8212; it is the same constraint seen from the other side.
+    Commands inside the bandwidth get rendered faithfully; the jaw's 0.878 is
+    speech-rate detail the motor cannot follow. Eye animation needs no cleverness
+    to look right, and the jaw will always be an approximation.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Still unknown</p>
+  <h2>What the six fields mean</h2>
+  <div class="col">
+    <p>The control track's framing is decoded; its payload is not. Six discrete
+    fields, three motors, and no mapping between them yet. Three hypotheses have
+    been tested and rejected: that a field is a position proportional to loudness,
+    that the intervals are a simple pulse count, and that it is biphase-mark
+    encoding like SMPTE timecode.</p>
+    <p>Cracking it would not change how the bear speaks. It would tell us what the
+    original animators thought the right answer was &#8212; a ground truth to check
+    the envelope against, from people who solved this problem once already, on the
+    same three motors.</p>
+  </div>
+</section>
+
+<p class="foot">
+  All figures measured on the mechanism, 2026-08-27. Slew and dead time from
+  stop-to-stop sweeps at full duty; frequency response from sine sweeps at
+  1&#8211;5 Hz; lag and correlation from a Fish Audio clip played through the real
+  jaw. Control-track figures from five original story tapes, 81 minutes, decoded
+  to 200,785 frames.
+</p>
+
+</div>
