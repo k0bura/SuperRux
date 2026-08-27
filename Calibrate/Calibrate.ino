@@ -243,9 +243,6 @@ static void moveMs(uint8_t ax, int dir, uint16_t ms, int duty) {
   if (a.travelMs && a.posMs > a.travelMs) a.posMs = a.travelMs;
 }
 
-// Closed-loop move: drive until the pot reaches the target. Duty tapers with
-// error, which matters because the mechanism has ~75ms of dead time before it
-// responds - full duty right up to the target overshoots every time.
 // Raw drive direction that makes this axis's reading increase. driveToStop with
 // -closeDir lands on adcFar, so -closeDir is the rising direction when adcFar is
 // the higher end and +closeDir when it is not.
@@ -267,6 +264,9 @@ static int pctTarget(uint8_t ax, uint8_t pct, int32_t *spanOut) {
   return safeHome + (int)(span * pct / 100);
 }
 
+// Closed-loop move: drive until the pot reaches the target. Duty tapers with
+// error, which matters because the mechanism has ~75ms of dead time before it
+// responds - full duty right up to the target overshoots every time.
 static void gotoPctPot(uint8_t ax, uint8_t pct, int tolerance, bool verbose) {
   Axis &a = axes[ax];
   int32_t span;
