@@ -102,7 +102,7 @@ struct Axis {
 // openMouth()/closeMouth() do in TeddyRuxbin.ino.
 Axis axes[AX_COUNT] = {
   { "upper", 'u', -1, 60, 0, 0, POT_UPPER, -1, -1, MARGIN_DEFAULT },
-  { "lower", 'l', +1, 60, 0, 0, POT_LOWER, -1, -1, MARGIN_DEFAULT },
+  { "lower", 'l', -1, 60, 0, 0, POT_LOWER, -1, -1, MARGIN_DEFAULT },
   { "eyes",  'e', -1, 60, 0, 0, POT_EYES,  -1, -1, MARGIN_DEFAULT },
   { "jaw",   'j', -1, 60, 0, 0, -1,        -1, -1, MARGIN_DEFAULT },  // virtual axis, no sensor
 };
@@ -128,8 +128,11 @@ static void rawDrive(uint8_t ax, int dir, int duty) {
     case AX_UPPER: upperMouth.drive(dir * duty); break;
     case AX_LOWER: lowerMouth.drive(dir * duty); break;
     case AX_EYES:  eyes.drive(dir * duty);       break;
-    case AX_JAW:   upperMouth.drive(dir * duty);
-                   lowerMouth.drive(-dir * duty); break;
+    // Virtual axis, dir +1 opens. Driving the two halves in hardcoded opposition
+    // assumed their closeDir always differed; it does not once a motor is wired
+    // the other way round. Each half follows its own closeDir instead.
+    case AX_JAW:   upperMouth.drive(-axes[AX_UPPER].closeDir * dir * duty);
+                   lowerMouth.drive(-axes[AX_LOWER].closeDir * dir * duty); break;
   }
 }
 
