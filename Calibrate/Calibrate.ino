@@ -243,6 +243,14 @@ static void moveMs(uint8_t ax, int dir, uint16_t ms, int duty) {
 // Closed-loop move: drive until the pot reaches the target. Duty tapers with
 // error, which matters because the mechanism has ~75ms of dead time before it
 // responds - full duty right up to the target overshoots every time.
+// Raw drive direction that makes this axis's reading increase. driveToStop with
+// -closeDir lands on adcFar, so -closeDir is the rising direction when adcFar is
+// the higher end and +closeDir when it is not.
+static int riseDir(uint8_t ax) {
+  const Axis &a = axes[ax];
+  return ((int32_t)a.adcFar > (int32_t)a.adcHome) ? -a.closeDir : a.closeDir;
+}
+
 // Percent of the working range -> raw ADC target, insets applied. Factored out
 // so a second caller can land on exactly the same numbers gotoPctPot would.
 static int pctTarget(uint8_t ax, uint8_t pct, int32_t *spanOut) {
@@ -260,7 +268,7 @@ static void gotoPctPot(uint8_t ax, uint8_t pct, int tolerance, bool verbose) {
   Axis &a = axes[ax];
   int32_t span;
   int     target = pctTarget(ax, pct, &span);
-  int     sign   = (span > 0) ? +1 : -1;      // direction that raises the reading
+  int     sign   = riseDir(ax);               // direction that raises the reading
   // Every observed error was an undershoot, so the taper was bottoming out below
   // what keeps the axis moving. min_duty is breakaway-from-rest; sustaining
   // motion under load needs more, and a narrower band holds duty up for longer.
