@@ -96,8 +96,21 @@ unmodified on ESP32 — `analogWrite` is LEDC-backed on core 3.x.
 arrow keys in `tune` to work:
 
 ```sh
-python3 -m serial.tools.miniterm /dev/ttyUSB0 115200
+python3 -m serial.tools.miniterm --echo --rts 0 --dtr 0 /dev/ttyUSB0 115200
 ```
+
+`--echo` gives you local echo. The firmware never echoes what you type — it
+buffers each character and prints only the `> ` prompt — so without this you
+type blind. It is terminal-side only and sends nothing extra to the board, so it
+cannot trip the firmware's TX-into-RX guard. In `tune`, arrow keys echo as their
+raw escape sequences; that is cosmetic.
+
+`--rts 0 --dtr 0` is not optional. On this devkit RTS drives EN and DTR drives
+GPIO 0, so a terminal that asserts them on open holds the board in reset or in
+download mode. You then read a stale USB-serial buffer instead of the console —
+fast repeating garbage on an exact 32-byte period, sometimes binary, sometimes
+mangled slices of the help text with the `> ` prompt spliced mid-line. It looks
+like a firmware fault and is not one.
 
 Axes: `u` upper mouth, `l` lower mouth, `e` eyes, `j` jaw (upper+lower opposed).
 
