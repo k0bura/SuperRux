@@ -164,22 +164,35 @@ static int dutyFor(uint8_t ax, int base) {
   return d;
 }
 
+// Movement smaller than this is noise, not travel.
+static const int      STOP_MIN_TRAVEL = 40;   // counts
+static const uint16_t START_GRACE     = 900;  // ms allowed to break away
+static const int      NO_MOTION       = -1;   // driveToStop: never left the start
+
 // Drive to a stop and terminate on arrival rather than on a timer. Returns the
-// reading at the stop. dir +1 drives away from home, -1 toward it.
+// reading at the stop, or NO_MOTION if the axis never moved at all.
+// dir +1 drives away from home, -1 toward it.
 static int driveToStop(uint8_t ax, int dir) {
   Axis &a = axes[ax];
   rawDrive(ax, dir, dutyFor(ax, HOME_DUTY));
-  int last = readPot(ax);
+  int start = readPot(ax);
+  int last  = start;
   uint32_t t0 = millis(), stable = millis();
+  bool moved = false;
   while (millis() - t0 < HOME_TIMEOUT) {
     delay(30);
     int v = readPot(ax);
     if (abs(v - last) > STOP_EPS) { last = v; stable = millis(); }
-    else if (millis() - stable > STOP_HOLD) break;   // arrived
+    if (abs(v - start) > STOP_MIN_TRAVEL) moved = true;
+    // "Arrived" only counts once the axis has actually left where it started.
+    // A motor below its breakaway duty holds a dead-steady reading too, and
+    // without this that is indistinguishable from sitting against the stop.
+    if (moved) { if (millis() - stable > STOP_HOLD) break; }
+    else if (millis() - t0 > START_GRACE) break;
   }
   rawBrake(ax);
   delay(200);
-  return readPot(ax);
+  return moved ? readPot(ax) : NO_MOTION;
 }
 
 // The datum. With a pot this terminates on arrival; without one it falls back to
@@ -198,6 +211,11 @@ static void homeAxis(uint8_t ax) {
   if (a.potPin >= 0) {
     uint32_t t0 = millis();
     int at = driveToStop(ax, a.closeDir);
+    if (at == NO_MOTION) {
+      Serial.printf("  %-5s DID NOT MOVE - not homed. Run 'stiction %c' first.\n",
+                    a.name, a.tok);
+      return;
+    }
     a.posMs = 0;
     Serial.printf("  %-5s homed in %lums, adc %d\n",
                   a.name, (unsigned long)(millis() - t0), at);
@@ -505,11 +523,22 @@ static void handle(char *line) {
     if (cax < 0 || axes[cax].potPin < 0) { Serial.println("  bad axis"); return; }
     Axis &ca = axes[cax];
     Serial.println("  to the home stop...");
-    ca.adcHome = driveToStop(cax, ca.closeDir);
-    Serial.printf("  home adc %d\n", ca.adcHome);
+    int cHome = driveToStop(cax, ca.closeDir);
+    Serial.printf("  home adc %d\n", cHome);
     Serial.println("  to the far stop...");
-    ca.adcFar = driveToStop(cax, -ca.closeDir);
-    Serial.printf("  far  adc %d\n", ca.adcFar);
+    int cFar = driveToStop(cax, -ca.closeDir);
+    Serial.printf("  far  adc %d\n", cFar);
+    // Never persist an endpoint the axis did not actually travel to. A motor
+    // below its breakaway duty reports a rock-steady reading at both "stops",
+    // which used to save a zero-span calibration and report success.
+    if (cHome == NO_MOTION || cFar == NO_MOTION ||
+        abs(cFar - cHome) < STOP_MIN_TRAVEL * 2) {
+      Serial.printf("  %s: no real travel - endpoints NOT saved\n", ca.name);
+      Serial.printf("  run 'stiction %c' first; duty may be below breakaway\n", ca.tok);
+      return;
+    }
+    ca.adcHome = cHome;
+    ca.adcFar  = cFar;
     Serial.printf("  %s span %d counts\n", ca.name, abs(ca.adcFar - ca.adcHome));
     saveConfig();
     Serial.println("  backing off the stop...");
