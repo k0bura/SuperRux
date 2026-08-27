@@ -434,6 +434,57 @@ argument rather than Claude's streamed reply. Neither blocks the other; the
 `speak.py` structure is already the shape the server needs, with `gen()`
 standing in for the token stream it will eventually be handed.
 
+### Song mode — the two jaw halves move independently
+
+    tools/envelope.py song.wav --song --play /dev/ttyUSB0
+
+**Songs are the best case for this mechanism, not the worst.** A sustained note is
+0.5–2 Hz of envelope content, where the jaw renders ~100% of what it is asked; a
+speech syllable at 4 Hz gets 24%. Songs also skip the live pipeline entirely, so
+there is no latency budget and the analysis can be as expensive as it likes.
+
+Song mode spends that budget on what speech mode cannot afford: driving the two
+halves from genuinely separate signals instead of one scaled copy.
+
+| Half | Driven by | Rationale |
+|---|---|---|
+| lower | loudness, widened by **F1** | jaw drop tracks level; F1 tracks vowel openness (`/a/` is high) |
+| upper | **spectral tilt**, gated by loudness | low-frequency dominance means a rounded `/u/`, which closes the muzzle |
+
+Measured on real speech, the formant centroid correlates **+0.079** with amplitude
+and spectral tilt **+0.252** — effectively separate information, with good spread
+(both std ≈ 0.30 across the full range).
+
+**Gate the upper on amplitude; do not scale it by amplitude.** Scaling both halves
+by loudness let loudness dominate and they moved as one — `corr(upper, lower) =
+0.90`, exactly the hinge look this mode exists to avoid. Gated, the muzzle still
+shuts in silence but its travel is set by vowel shape rather than by level.
+
+Verified on the mechanism, 28 s passage, 1400 frames:
+
+| | Value |
+|---|---|
+| `corr(upper, lower)` commanded | +0.626 |
+| `corr(upper, lower)` **achieved** | **+0.601** |
+| upper travel / lower travel | 864 / 1586 counts (0.54) |
+| upper command → position | r = +0.961 at 100 ms |
+| lower command → position | r = +0.977 at 100 ms |
+
+The independence survives the hardware, and the tracking numbers confirm the
+premise outright: **0.96–0.98 against speech mode's 0.878, at 100 ms of lag rather
+than 140.** Inside its bandwidth the mechanism does what it is told.
+
+Both halves are low-passed to the 2 Hz corner here. Unlike speech mode — where
+that corner throws away the inter-phrase closure — for songs it is the right
+filter, because the content genuinely is that slow.
+
+**Caveat on tuning material.** The four candidate passages were located by F0
+stability and beat strength, and neither detector was convincing: best beat
+strength 0.17, semitone error 0.201 against 0.25 for random. They may be scored
+narration rather than singing. The tracking figures hold either way, but the
+*aesthetic* balance between the halves wants re-tuning against a passage
+confirmed by ear. Clips are in the scratchpad as `cand/*.wav`.
+
 ### Phase A results — 2026-08-27
 
 The physical layer is decoded. `tools/decode_control_track.py` locks onto the

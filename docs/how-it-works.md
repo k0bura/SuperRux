@@ -99,6 +99,25 @@ smaller command does not produce a proportionally smaller movement. Commanding
 That last figure is why the jaw is commanded *ahead* of the sound, by exactly
 that much.
 
+## Songs are the easy case
+
+Counterintuitively, singing is where this mechanism does its best work. A
+sustained note is 0.5–2 Hz of envelope content and the jaw renders essentially
+all of it, where a speech syllable at 4 Hz gets under a quarter. Songs also skip
+the live pipeline, so the analysis has no latency budget to respect.
+
+That buys the thing speech cannot afford: driving the two jaw halves from
+genuinely separate signals. The lower follows loudness widened by the first
+formant (which tracks how open a vowel is); the upper follows spectral tilt,
+merely *gated* by loudness rather than scaled by it — scaling both by loudness
+lets loudness dominate and the halves move as one, which is the hinge look again.
+
+Measured on a 28-second passage: commanded `corr(upper, lower)` 0.626, achieved
+0.601 — the halves really do move differently on the hardware, the upper
+travelling 864 counts against the lower's 1586. And both track their command at
+**r = 0.96–0.98 at 100 ms**, against speech mode's 0.878 at 140 ms. Inside its
+bandwidth, the mechanism does what it is told.
+
 ## The eyes are driven by rhythm, not level
 
 Amplitude-driven eyes look wrong — they read as a meter, not a face. Blinks are

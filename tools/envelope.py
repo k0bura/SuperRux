@@ -40,7 +40,101 @@ BLINK_MS     = 340   # each way; the eyes slew ~4.06 counts/ms at duty 255
 IDLE_BLINK_S = 4.0   # ~15/min, the low end of natural
 
 
-def eye_track(lower, seed=0):
+# ---------------------------------------------------------------- song mode
+#
+# Songs are the best case for this mechanism, not the worst. A sustained note is
+# 0.5-2 Hz of envelope content and the jaw renders ~100% of what it is asked at
+# those rates, where a speech syllable at 4 Hz gets 24%. Songs also skip the live
+# pipeline entirely (PLAN.md), so there is no latency budget and the analysis can
+# be as expensive as it likes.
+#
+# So song mode spends that budget on the thing speech mode cannot afford: driving
+# the two jaw halves from genuinely independent signals rather than one scaled
+# copy. Measured on real speech, the formant centroid correlates +0.079 with
+# amplitude and spectral tilt +0.008 -- effectively separate information.
+#
+#   lower  <- loudness, widened by F1   (F1 tracks vowel openness; /a/ is high)
+#   upper  <- loudness, narrowed by tilt (low-frequency dominance = rounded /u/)
+#
+# Both are low-passed to the mechanism's 2 Hz corner. Unlike speech mode, that is
+# the right corner here: the content really is that slow, so there is no
+# inter-phrase closure to lose.
+SONG_CORNER   = 2.0
+SONG_LOWER_MAX = 62      # more travel than speech: the rates allow it
+SONG_UPPER_MAX = 30
+
+
+def _onepole(v, corner, fs=1000.0 / FRAME_MS, attack_mult=2.0):
+    a_rel = 1.0 - np.exp(-2 * np.pi * corner / fs)
+    a_att = min(1.0, a_rel * attack_mult)
+    out = np.empty_like(v)
+    y = 0.0
+    for i, x in enumerate(v):
+        y += (a_att if x > y else a_rel) * (x - y)
+        out[i] = y
+    return out
+
+
+def song_track(path, range_db=30.0):
+    """Jaw envelope for a sung passage: two halves, two signals."""
+    x, sr = sf.read(path, dtype='float32', always_2d=True)
+    x = x.mean(axis=1)
+    n = int(sr * FRAME_MS / 1000.0)
+    nf = len(x) // n
+    if nf == 0:
+        sys.exit('audio shorter than one %dms frame' % FRAME_MS)
+    f = x[:nf * n].reshape(nf, n).astype(np.float64)
+
+    win = np.hanning(n)
+    S = np.abs(np.fft.rfft(f * win, axis=1))
+    fr = np.fft.rfftfreq(n, 1.0 / sr)
+
+    rms = np.sqrt((f ** 2).mean(axis=1)) + 1e-12
+    db = 20 * np.log10(rms)
+    ref = np.percentile(db, 95)
+    base = ref - range_db
+    amp = np.clip((db - base) / max(ref - base, 1e-6), 0.0, 1.0)
+    amp[db < base] = 0.0
+
+    # F1 proxy: spectral centroid inside the vowel-formant band.
+    band = (fr >= 200) & (fr <= 1100)
+    cen = (S[:, band] * fr[band]).sum(axis=1) / (S[:, band].sum(axis=1) + 1e-12)
+    # Rounding proxy: low-band against mid-band energy.
+    lo_b = (fr >= 200) & (fr < 700)
+    mid_b = (fr >= 700) & (fr < 2500)
+    tilt = np.log((S[:, lo_b].sum(axis=1) + 1e-9) / (S[:, mid_b].sum(axis=1) + 1e-9))
+
+    # Normalise both against their own voiced spread, so neither depends on the
+    # absolute level or the voice's timbre.
+    voiced = amp > 0.15
+    def norm(v):
+        if voiced.sum() < 8:
+            return np.zeros_like(v)
+        lo, hi = np.percentile(v[voiced], [10, 90])
+        return np.clip((v - lo) / max(hi - lo, 1e-9), 0.0, 1.0)
+    f1n, tiltn = norm(cen), norm(tilt)
+
+    # The lower jaw is amplitude-led: jaw drop really does track loudness.
+    openness = amp * (0.70 + 0.30 * f1n)          # F1 widens the opening
+
+    # The upper is *gated* by amplitude rather than scaled by it. Scaling both by
+    # amp made amp dominate and the halves moved as one -- corr 0.90, which is
+    # the hinge look this mode exists to avoid. Gated, the muzzle still shuts in
+    # silence but its travel is set by vowel shape, not by level.
+    gate = np.clip(amp / 0.30, 0.0, 1.0)
+    upperness = gate * (0.20 + 0.80 * (1.0 - tiltn))  # rounding closes the muzzle
+
+    lo_env = _onepole(openness, SONG_CORNER)
+    up_env = _onepole(upperness, SONG_CORNER)
+
+    lower = np.round(lo_env * SONG_LOWER_MAX).astype(int)
+    upper = np.round(up_env * SONG_UPPER_MAX).astype(int)
+    # Songs run long, so blink slower than speech mode does.
+    eyes, nblink = eye_track(lower, idle_s=6.0)
+    return upper, lower, eyes, nf, nblink
+
+
+def eye_track(lower, seed=0, idle_s=IDLE_BLINK_S):
     """Eye percentages per frame, from the jaw envelope's phrase structure."""
     nf = len(lower)
     fps = 1000.0 / FRAME_MS
@@ -66,7 +160,7 @@ def eye_track(lower, seed=0):
 
     # Top up to a natural idle rate if the phrasing did not supply enough.
     rng = np.random.default_rng(seed)
-    want = int(nf / fps / IDLE_BLINK_S)
+    want = int(nf / fps / idle_s)
     guard = int(1.5 * fps)
     tries = 0
     while len(at) < want and tries < 200:
@@ -224,11 +318,18 @@ def main():
     ap.add_argument('--range', dest='range_db', type=float, default=35.0,
                     help='dB below the 95th percentile that counts as silence')
     ap.add_argument('--corner', type=float, default=CORNER_HZ)
+    ap.add_argument('--song', action='store_true',
+                    help='song mode: upper and lower driven independently from '
+                         'formant and tilt, both low-passed to the 2 Hz corner')
     a = ap.parse_args()
 
-    upper, lower, eyes, nf, nblink = envelope(a.audio, a.range_db, a.corner)
-    print('  %d frames (%.2fs)  lower %d-%d%%  shut %.0f%% of frames'
-          % (nf, nf * FRAME_MS / 1000.0, lower.min(), lower.max(),
+    if a.song:
+        upper, lower, eyes, nf, nblink = song_track(a.audio, a.range_db)
+    else:
+        upper, lower, eyes, nf, nblink = envelope(a.audio, a.range_db, a.corner)
+    print('  %s: %d frames (%.2fs)  lower %d-%d%%  upper %d-%d%%  shut %.0f%%'
+          % ('song' if a.song else 'speech', nf, nf * FRAME_MS / 1000.0,
+             lower.min(), lower.max(), upper.min(), upper.max(),
              100.0 * (lower == 0).mean()))
     print('  %d blinks (%.1f/min)'
           % (nblink, nblink / (nf * FRAME_MS / 1000.0) * 60))
