@@ -405,6 +405,26 @@ Three things this shook out, all of which cost a run to find:
 measure. Live there is no lookahead, so a blink starts once the mouth has been
 shut briefly. Still placed on phrase structure, never on level.
 
+`speak.py` carries its own `Envelope` class, so the personality added to
+`envelope.py`'s `eye_track()` did **not** reach the realtime path and it blinked
+and nothing else. All four gestures port to streaming without lookahead: drift is
+a function of time, the phrase-onset widen only needs the shut→open edge, and the
+loud settle only needs a running mean. Measured on a real utterance, non-blink
+spread goes 18% → 27% between `--eye-gain 0` and `1.0`.
+
+**aplay's underrun warning here is a false signal.** It prints *after* playback
+completes, reporting a length equal to the whole stream. Three independent checks
+say the audio was fine: the loop's own instrumentation meets its write target on
+every tick (0 short, 0 deficit), the board reports 0 frame underruns, and
+standalone aplay fed by this exact pacing never produces the message. Its stderr
+is discarded and replaced by measurement — the `audio:` line counts ticks where
+the target could not be met, and the board counts frame underruns independently.
+Do not re-add the warning; do watch those two counters.
+
+Audio is now written against a **target depth** rather than one chunk per tick.
+Writing 20 ms per 20 ms tick is open loop, and across hundreds of ticks a single
+late one drains ALSA; targeting `elapsed x byte_rate + cushion` self-corrects.
+
 **Audio playback: aplay, and pin its buffer.** Three findings, each of which
 presented as "the audio is delayed":
 
