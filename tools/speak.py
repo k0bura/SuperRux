@@ -37,6 +37,13 @@ BLINK_MS     = 340
 REF_DB   = -17.0
 RANGE_DB = 25.0
 
+# The board prefills its ring before starting its frame clock (envstream's
+# PREFILL x FRAME_MS). The host starts audio immediately, so without accounting
+# for this the jaw begins a third of a second late and --lead has to absorb it --
+# which is why syncing by eye landed on ~500ms when the mechanism's own lag is
+# only ~140. Keep in step with PREFILL in Calibrate.ino.
+BOARD_PREFILL_MS = 300
+
 VOICE_ID = '33311739f2214b82b7ad64e46f077164'
 OS1_ENV  = os.path.expanduser('~/code/OS1/.env')
 
@@ -181,8 +188,9 @@ def main():
     ap.add_argument('text', nargs='+')
     ap.add_argument('--port', default='/dev/ttyUSB0')
     ap.add_argument('--voice', default=VOICE_ID)
-    ap.add_argument('--lead', type=int, default=140,
-                    help='ms the jaw leads the sound; negative puts it behind')
+    ap.add_argument('--lead', type=int, default=200,
+                    help='ms the jaw leads the sound, on top of the board '
+                         'prefill and ALSA cushion, which are handled for you')
     ap.add_argument('--eye-gain', type=float, default=1.0, metavar='G',
                     help="scale the eyes' expressive motion; 0 = blinks only")
     ap.add_argument('--cushion', type=int, default=200, metavar='MS',
@@ -274,7 +282,11 @@ def main():
     # but it is a known constant, so the frames are delayed to match instead of
     # leaving it for the ear to fight. Net: the jaw leads the *sound* by --lead.
     cushion_bytes = int(SAMPLE_RATE * 2 * a.cushion / 1000.0)
-    net = a.cushion - a.lead
+    # Three terms decide who waits for whom: the board's prefill delays the jaw,
+    # the ALSA cushion delays the sound, and --lead is how far the jaw should
+    # lead the sound once both are accounted for.
+    board_prefill = 0 if a.no_board else BOARD_PREFILL_MS
+    net = a.cushion - a.lead - board_prefill
     delay_frames = max(0, int(round(net / FRAME_MS)))     # hold frames back
     lead_frames  = max(0, int(round(-net / FRAME_MS)))    # hold audio back
     nframes = under = ticks = 0

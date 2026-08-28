@@ -421,7 +421,23 @@ is discarded and replaced by measurement — the `audio:` line counts ticks wher
 the target could not be met, and the board counts frame underruns independently.
 Do not re-add the warning; do watch those two counters.
 
-Audio is now written against a **target depth** rather than one chunk per tick.
+**Sync: three terms, not one.** Tuning by eye landed on `--lead 500`, far above
+the mechanism's measured 120–140 ms lag, and the gap was a term the model was
+missing: **the board prefills 15 frames (300 ms) before starting its frame
+clock**, while the host starts audio immediately, so the jaw begins a third of a
+second late. `--lead` was silently absorbing it.
+
+The host now accounts for all three explicitly — board prefill delays the jaw,
+the ALSA cushion delays the sound, and `--lead` is what remains on top:
+
+    net = cushion - lead - board_prefill
+
+Default `--lead` is **200 ms**, which yields the same 300 ms of audio hold-back
+that `--lead 500` produced under the old formula — the empirically correct sync,
+now decomposed into terms that mean something. `BOARD_PREFILL_MS` in `speak.py`
+must track `PREFILL` in `Calibrate.ino`; change one and the sync drifts.
+
+Audio is written against a **target depth** rather than one chunk per tick.
 Writing 20 ms per 20 ms tick is open loop, and across hundreds of ticks a single
 late one drains ALSA; targeting `elapsed x byte_rate + cushion` self-corrects.
 
