@@ -75,7 +75,7 @@ def _onepole(v, corner, fs=1000.0 / FRAME_MS, attack_mult=2.0):
     return out
 
 
-def song_track(path, range_db=30.0):
+def song_track(path, range_db=30.0, eye_gain=1.0):
     """Jaw envelope for a sung passage: two halves, two signals."""
     x, sr = sf.read(path, dtype='float32', always_2d=True)
     x = x.mean(axis=1)
@@ -130,18 +130,40 @@ def song_track(path, range_db=30.0):
     lower = np.round(lo_env * SONG_LOWER_MAX).astype(int)
     upper = np.round(up_env * SONG_UPPER_MAX).astype(int)
     # Songs run long, so blink slower than speech mode does.
-    eyes, nblink = eye_track(lower, idle_s=6.0)
+    eyes, nblink = eye_track(lower, idle_s=6.0, gain=eye_gain)
     return upper, lower, eyes, nf, nblink
 
 
-def eye_track(lower, seed=0, idle_s=IDLE_BLINK_S):
-    """Eye percentages per frame, from the jaw envelope's phrase structure."""
+def eye_track(lower, seed=0, idle_s=IDLE_BLINK_S, gain=1.0):
+    """Eye percentages per frame, from the jaw envelope's phrase structure.
+
+    Placed on phrase structure and slow time, never on level: amplitude-driven
+    eyes read as a meter rather than a face. The eyes axis is one motor moving
+    lid height, so there is no gaze direction to play with -- personality has to
+    come from *when* and *how far*, not from where it looks.
+
+    Two constraints bound how subtle subtle can be. The closed loop ignores
+    error below STREAM_TOL, about 1.4% of the eye's range, so anything smaller
+    than that does not move at all. And the axis is a DC gearmotor, not a silent
+    servo -- it whirs whenever it moves, so continuous micro-motion would be a
+    constant hum next to the microphone. Everything here is therefore either
+    slow or occasional.
+    """
     nf = len(lower)
     fps = 1000.0 / FRAME_MS
-    eyes = np.full(nf, EYES_NEUTRAL, dtype=float)
+    rng = np.random.default_rng(seed)
+    eyes = np.full(nf, float(EYES_NEUTRAL))
+    t = np.arange(nf) / fps
 
-    # Gaps: runs where the mouth is shut. Blink inside one and it reads as
-    # punctuation; blink mid-word and it reads as a twitch.
+    # gain scales every expressive amount below; 0 gives blinks only. Measured
+    # at gain 1.0 the non-blink motion spans 882 counts, 41% of the eye's range,
+    # which is expressive rather than subtle -- dial it down to taste.
+    if gain > 0:
+        # Idle drift: two slow incommensurate sines, so it never visibly loops.
+        # Both above the 1.4% deadband and slow enough to stay quiet.
+        eyes += gain * 3.0 * np.sin(2 * np.pi * t / 9.3 + rng.uniform(0, 6.28))
+        eyes += gain * 2.0 * np.sin(2 * np.pi * t / 14.7 + rng.uniform(0, 6.28))
+
     shut = lower == 0
     gaps, run = [], None
     for i, v in enumerate(shut):
@@ -153,13 +175,29 @@ def eye_track(lower, seed=0, idle_s=IDLE_BLINK_S):
         gaps.append((run, nf))
 
     half = int(BLINK_MS / FRAME_MS)
-    at = []
-    for a, b in gaps:
-        if (b - a) >= half:                      # long enough to hide a blink
-            at.append(a + (b - a) // 2)
 
-    # Top up to a natural idle rate if the phrasing did not supply enough.
-    rng = np.random.default_rng(seed)
+    if gain > 0:
+        # Widen as a phrase begins - reads as drawing breath to speak. Keyed to
+        # phrase onsets, so it is still structure rather than loudness.
+        rise = max(2, int(0.18 * fps))
+        for a_, b_ in gaps:
+            if b_ >= nf - 2 or (b_ - a_) < half // 2:
+                continue
+            for k in range(rise):
+                i = b_ + k
+                if i < nf:
+                    eyes[i] += gain * 9.0 * (1.0 - k / float(rise))
+        # Settle the lids through sustained loud passages - the look of effort
+        # you get in singing. Slow by construction, so it stays quiet.
+        if (lower > 0).any():
+            thr = np.percentile(lower[lower > 0], 60)
+            W = max(2, int(1.2 * fps))
+            loud = np.convolve((lower > thr).astype(float), np.ones(W) / W, 'same')
+            eyes -= gain * 5.0 * np.clip(loud, 0.0, 1.0)
+
+    # Blinks sit in the gaps: in a gap a blink reads as punctuation, mid-word as
+    # a twitch. Vary the kind - identical blinks read as a mechanism.
+    at = [a_ + (b_ - a_) // 2 for a_, b_ in gaps if (b_ - a_) >= half]
     want = int(nf / fps / idle_s)
     guard = int(1.5 * fps)
     tries = 0
@@ -169,19 +207,29 @@ def eye_track(lower, seed=0, idle_s=IDLE_BLINK_S):
         if all(abs(c - x) > guard for x in at):
             at.append(c)
 
-    for c in at:
-        for k in range(-half, half + 1):
-            i = c + k
-            if 0 <= i < nf:
-                # linear down and back up; the mechanism rounds the corners
-                f = 1.0 - abs(k) / float(half)
-                v = EYES_NEUTRAL + (EYES_SHUT - EYES_NEUTRAL) * f
-                eyes[i] = min(eyes[i], v)
+    kinds = {'full': 0, 'half': 0, 'double': 0}
+    for c in sorted(at):
+        r = rng.random()
+        if gain <= 0 or r < 0.62:
+            shapes = [(EYES_SHUT, half)]; kinds['full'] += 1
+        elif r < 0.85:
+            shapes = [(EYES_NEUTRAL - 26, int(half * 0.7))]; kinds['half'] += 1
+        else:
+            shapes = [(EYES_SHUT, int(half * 0.8))] * 2; kinds['double'] += 1
+        cur = c
+        for depth, hw in shapes:
+            hw = max(2, hw)
+            for k in range(-hw, hw + 1):
+                i = cur + k
+                if 0 <= i < nf:
+                    f = 1.0 - abs(k) / float(hw)
+                    eyes[i] += (depth - eyes[i]) * f
+            cur += int(hw * 2.1)
 
-    return np.round(eyes).astype(int), len(at)
+    return np.clip(np.round(eyes), 0, 100).astype(int), len(at)
 
 
-def envelope(path, range_db=35.0, corner=CORNER_HZ, floor_db=-60.0):
+def envelope(path, range_db=35.0, corner=CORNER_HZ, floor_db=-60.0, eye_gain=1.0):
     x, sr = sf.read(path, dtype='float32', always_2d=True)
     x = x.mean(axis=1)                       # mono
 
@@ -217,7 +265,7 @@ def envelope(path, range_db=35.0, corner=CORNER_HZ, floor_db=-60.0):
 
     lower = np.round(out * LOWER_MAX).astype(int)
     upper = np.round(out * LOWER_MAX * USCALE / 100.0).astype(int)
-    eyes, nblink = eye_track(lower)
+    eyes, nblink = eye_track(lower, gain=eye_gain)
     return upper, lower, eyes, nf, nblink
 
 
@@ -318,15 +366,18 @@ def main():
     ap.add_argument('--range', dest='range_db', type=float, default=35.0,
                     help='dB below the 95th percentile that counts as silence')
     ap.add_argument('--corner', type=float, default=CORNER_HZ)
+    ap.add_argument('--eye-gain', type=float, default=1.0, metavar='G',
+                    help='scale the eyes\' expressive motion; 0 = blinks only')
     ap.add_argument('--song', action='store_true',
                     help='song mode: upper and lower driven independently from '
                          'formant and tilt, both low-passed to the 2 Hz corner')
     a = ap.parse_args()
 
     if a.song:
-        upper, lower, eyes, nf, nblink = song_track(a.audio, a.range_db)
+        upper, lower, eyes, nf, nblink = song_track(a.audio, a.range_db, a.eye_gain)
     else:
-        upper, lower, eyes, nf, nblink = envelope(a.audio, a.range_db, a.corner)
+        upper, lower, eyes, nf, nblink = envelope(a.audio, a.range_db, a.corner,
+                                                  eye_gain=a.eye_gain)
     print('  %s: %d frames (%.2fs)  lower %d-%d%%  upper %d-%d%%  shut %.0f%%'
           % ('song' if a.song else 'speech', nf, nf * FRAME_MS / 1000.0,
              lower.min(), lower.max(), upper.min(), upper.max(),

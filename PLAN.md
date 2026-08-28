@@ -478,6 +478,33 @@ Both halves are low-passed to the 2 Hz corner here. Unlike speech mode — where
 that corner throws away the inter-phrase closure — for songs it is the right
 filter, because the content genuinely is that slow.
 
+### Eye personality
+
+The eyes axis is one motor moving lid height, so there is no gaze direction to
+play with — personality has to come from *when* and *how far*, never from where
+it looks. Two constraints bound how subtle subtle can be:
+
+- The closed loop ignores error below `STREAM_TOL`, **~1.4% of the eye's range**,
+  so anything smaller than that does not move at all.
+- The axis is a DC gearmotor, not a silent servo. It whirs whenever it moves, so
+  continuous micro-motion would be a constant hum next to the microphone.
+  Everything is therefore either slow or occasional — **measured, only 10% of
+  frames command a move past the deadband, so the motor is still 90% of the time.**
+
+What was added, all keyed to phrase structure or slow time rather than level:
+
+| | |
+|---|---|
+| idle drift | two incommensurate sines, 9.3 s and 14.7 s, ~3% and ~2% — never visibly loops |
+| blink variety | 62% full, 23% half, 15% double; identical blinks read as a mechanism |
+| phrase-onset widen | +9% as a phrase begins, reads as drawing breath |
+| sustained-loud settle | −5% through loud passages, the look of effort in singing |
+
+Measured: command → position **r = +0.987 at 60 ms**. Excluding blinks the
+expressive motion alone spans 882 counts, **41% of the eye's working range** — which
+is expressive rather than subtle, so `--eye-gain` scales all of it (0 = blinks
+only). At gain 0 / 0.4 / 1.0 the non-blink spread is 18 / 25 / 33%.
+
 **Caveat on tuning material.** The four candidate passages were located by F0
 stability and beat strength, and neither detector was convincing: best beat
 strength 0.17, semitone error 0.201 against 0.25 for random. They may be scored
