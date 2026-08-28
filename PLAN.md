@@ -505,12 +505,30 @@ expressive motion alone spans 882 counts, **41% of the eye's working range** —
 is expressive rather than subtle, so `--eye-gain` scales all of it (0 = blinks
 only). At gain 0 / 0.4 / 1.0 the non-blink spread is 18 / 25 / 33%.
 
-**Caveat on tuning material.** The four candidate passages were located by F0
-stability and beat strength, and neither detector was convincing: best beat
-strength 0.17, semitone error 0.201 against 0.25 for random. They may be scored
-narration rather than singing. The tracking figures hold either way, but the
-*aesthetic* balance between the halves wants re-tuning against a passage
-confirmed by ear. Clips are in the scratchpad as `cand/*.wav`.
+**Confirmed sung passage: `ref/clips/SONG_the-airship_56s.wav`** — *The Airship*
+at t=56–84 s, identified by ear, not by the detectors. Worth recording why they
+failed: averaged over 25–30 s windows they mixed the spoken and sung halves of
+the same passage and reported nothing. Split at the boundary the ear found, the
+two halves measure completely differently:
+
+| | note-like | semitone error |
+|---|---|---|
+| t=42–56 s, spoken | 0.0% | 0.244 (≈ random) |
+| t=56–84 s, **sung** | 8.7% | 0.180 |
+
+Verified on the mechanism against genuine singing, 1400 frames:
+
+| | Value |
+|---|---|
+| `corr(upper, lower)` commanded / achieved | +0.627 / **+0.633** |
+| upper / lower travel | 884 / 1617 counts (0.55) |
+| upper command → position | r = +0.959 at 80 ms |
+| lower command → position | r = +0.973 at 100 ms |
+| eyes command → position | r = +0.988 at 60 ms |
+
+The formulation needed no retuning for real singing — `corr(upper, lower)` came
+out +0.627 against +0.626 on the mixed clip — which is a good sign it is keyed to
+something real about vowels rather than fitted to one passage.
 
 ### Phase A results — 2026-08-27
 
