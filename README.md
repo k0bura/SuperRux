@@ -1,4 +1,4 @@
-# Teddy Ruxpin — Conversational Animatronic
+# SuperRux — Conversational Animatronic
 
 Turning a 1985 Worlds of Wonder Teddy Ruxpin into a battery-powered
 conversational toy: ask a question, the bear searches, answers aloud, and the
@@ -77,7 +77,7 @@ docs/wiring.html     the same as a self-contained page, with a tick-off checklis
 docs/how-it-works.md how the mouth is driven, and how the 1985 tape differed
 docs/how-it-works.html  the same with four measured diagrams
 Calibrate/           phase 1 firmware — motors, pots, calibration console
-TeddyRuxbin.ino      original Uno test jig (reference only)
+SuperRux.ino         original Uno test jig (reference only)
 ```
 
 Wiring, including the pot dividers and the power topology, is in

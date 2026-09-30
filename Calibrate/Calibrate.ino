@@ -1,6 +1,6 @@
 /******************************************************************************
 Calibrate.ino
-Teddy Ruxpin - phase 1: stall-home, travel measurement, gesture table.
+SuperRux - phase 1: stall-home, travel measurement, gesture table.
 
 Target: ESP32 ESP-WROOM-32 (Hosyond devkit, CP2102)
 FQBN:   esp32:esp32:esp32
@@ -99,7 +99,7 @@ struct Axis {
 };
 
 // AX_JAW is virtual: it drives the two mouth motors in opposition, the way
-// openMouth()/closeMouth() do in TeddyRuxbin.ino.
+// openMouth()/closeMouth() do in SuperRux.ino.
 Axis axes[AX_COUNT] = {
   { "upper", 'u', -1, 60, 0, 0, POT_UPPER, -1, -1, MARGIN_DEFAULT },
   { "lower", 'l', -1, 60, 0, 0, POT_LOWER, -1, -1, MARGIN_DEFAULT },
@@ -1208,7 +1208,7 @@ void setup() {
   delay(300);
   // Full-scale attenuation so the wiper's 0.3-2.6V swing fits the input range.
   analogSetAttenuation(ADC_11db);
-  Serial.println("\nTeddy Ruxpin - phase 1 calibration");
+  Serial.println("\nSuperRux - phase 1 calibration");
   loadConfig();
   showConfig();
   help();
